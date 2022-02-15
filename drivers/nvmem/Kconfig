@@ -365,6 +365,18 @@ config NVMEM_SNVS_LPGPR
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-snvs-lpgpr.
 
+config NVMEM_SIMPLE_MFD
+	tristate "Simple MFD - I2C/SPMI NVMEM"
+	depends on MFD_SIMPLE_MFD_I2C || MFD_SIMPLE_MFD_SPMI || COMPILE_TEST
+	help
+	  Say y here to build a generic driver to expose an simple MFD device
+	  as a NVMEM provider. Both I2C and SPMI MFDs are supported. This can
+	  be used for PMIC devices which are used to store power and
+	  RTC-related settings on certain platforms, such as Apple iPhones.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem-simple-mfd.
+
 config NVMEM_SPMI_SDAM
 	tristate "SPMI SDAM Support"
 	depends on SPMI
