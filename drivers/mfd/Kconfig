@@ -1492,6 +1492,19 @@ config MFD_SIMPLE_MFD_I2C
 	  sub-devices represented by child nodes in Device Tree will be
 	  subsequently registered.
 
+config MFD_SIMPLE_MFD_SPMI
+	tristate
+	depends on SPMI
+	select MFD_CORE
+	select REGMAP_SPMI
+	help
+	  This driver creates a single register map with the intention for it
+	  to be shared by all sub-devices.
+
+	  Once the register map has been successfully initialised, any
+	  sub-devices represented by child nodes in Device Tree will be
+	  subsequently registered.
+
 config MFD_SL28CPLD
 	tristate "Kontron sl28cpld Board Management Controller"
 	depends on I2C
