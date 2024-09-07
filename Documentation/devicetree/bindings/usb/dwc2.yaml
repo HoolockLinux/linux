@@ -69,6 +69,14 @@ properties:
           - const: snps,dwc2
       - const: samsung,s3c6400-hsotg
       - const: intel,socfpga-agilex-hsotg
+      - items:
+          - enum:
+              - apple,s5l8960x-dwc2
+              - apple,s8000-dwc2
+              - apple,t7000-dwc2
+              - apple,t8010-dwc2
+              - apple,t8015-dwc2
+          - const: apple,dwc2
 
   reg:
     maxItems: 1
