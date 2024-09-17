@@ -121,6 +121,20 @@ cpu_enable_cache_maint_trap(const struct arm64_cpu_capabilities *__unused)
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_UCI, 0);
 }
 
+static void __maybe_unused
+apple_fusion_taint(const struct arm64_cpu_capabilities *__unused)
+{
+	/*
+	 * A variable MPIDR_EL1 would have been a receipe for disaster,
+	 * but since A10(X) does not use any of KVM, GIC, ACPI, PSCI
+	 * or cpuidle, and that all CPUs switch between P-mode and E-mode
+	 * together, we do not need to do anything about this (yet).
+	 * However, this is still too cursed to not taint the kernel.
+	 */
+	pr_info_once("Apple Fusion Architecture detected, tainting kernel.\n");
+	add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
+}
+
 #define CAP_MIDR_RANGE(model, v_min, r_min, v_max, r_max)	\
 	.matches = is_affected_midr_range,			\
 	.midr_range = MIDR_RANGE(model, v_min, r_min, v_max, r_max)
@@ -467,6 +481,14 @@ static const struct midr_range erratum_ac03_cpu_38_list[] = {
 };
 #endif
 
+#ifdef CONFIG_ARM64_WORKAROUND_APPLE_FUSION
+static const struct midr_range apple_fusion_list[] = {
+	MIDR_ALL_VERSIONS(MIDR_APPLE_A10_T2_HURRICANE_ZEPHYR),
+	MIDR_ALL_VERSIONS(MIDR_APPLE_A10X_HURRICANE_ZEPHYR),
+	{}
+};
+#endif
+
 const struct arm64_cpu_capabilities arm64_errata[] = {
 #ifdef CONFIG_ARM64_WORKAROUND_CLEAN_CACHE
 	{
@@ -784,6 +806,14 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.desc = "AmpereOne erratum AC03_CPU_38",
 		.capability = ARM64_WORKAROUND_AMPERE_AC03_CPU_38,
 		ERRATA_MIDR_RANGE_LIST(erratum_ac03_cpu_38_list),
+	},
+#endif
+#ifdef CONFIG_ARM64_WORKAROUND_APPLE_FUSION
+	{
+		.desc = "Apple Fusion Architecture",
+		.capability = ARM64_WORKAROUND_APPLE_FUSION,
+		ERRATA_MIDR_RANGE_LIST(apple_fusion_list),
+		.cpu_enable = apple_fusion_taint,
 	},
 #endif
 	{
