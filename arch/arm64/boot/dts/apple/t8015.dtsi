@@ -240,6 +240,45 @@
 			 */
 			status = "disabled";
 		};
+
+		usb-bus {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+			ranges;
+
+			usbdev: usbdev@230100000 {
+				compatible = "apple,t8015-dwc2", "apple,dwc2";
+				reg = <0x2 0x30100000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 324 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clkref>;
+				clock-names = "otg";
+				power-domains = <&ps_usb2dev>;
+				dr_mode = "peripheral";
+			};
+
+			ehci0: usb-ehci@230200000 {
+				compatible = "apple,t8015-ehci", "generic-ehci";
+				reg = <0x2 0x30200000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 319 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0>;
+			};
+
+			ohci0: usb-ohci@230300000 {
+				compatible = "apple,t8015-ohci", "generic-ohci";
+				reg = <0x2 0x30300000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 320 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0_ohci>;
+			};
+
+			ehci1: usb-ehci@230400000 {
+				compatible = "apple,t8015-ehci", "generic-ehci";
+				reg = <0x2 0x30400000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 321 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host1>;
+			};
+		};
 	};
 
 	timer {
