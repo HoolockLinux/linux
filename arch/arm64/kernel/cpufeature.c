@@ -3973,8 +3973,29 @@ static void __init setup_system_capabilities(void)
 	spectre_print_disabled_mitigations();
 }
 
+static void bad_aarch32_el0_fixup(void)
+{
+	if (cpus_have_cap(ARM64_WORKAROUND_APPLE_FUSION)) {
+		struct arm64_ftr_reg *regp;
+
+		/*
+		 * Disable 32-bit EL0 altogether since A10(X) cannot execute
+		 * 32-bit EL0 in some p-states.
+		 */
+		regp = get_arm64_ftr_reg(SYS_ID_AA64PFR0_EL1);
+		if (!regp)
+			return;
+		u64 val = (regp->sys_val & ~ID_AA64PFR0_EL1_EL0_MASK)
+		  | ID_AA64PFR0_EL1_EL0_IMP;
+
+		update_cpu_ftr_reg(regp, val);
+	}
+}
+
 void __init setup_system_features(void)
 {
+	bad_aarch32_el0_fixup();
+
 	setup_system_capabilities();
 
 	linear_map_maybe_split_to_ptes();
