@@ -11,6 +11,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/apple.h>
 
 / {
@@ -143,6 +144,68 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
+		};
+
+		bus@20c000000 {
+			compatible = "apple,s5l8960x-usb-complex", "simple-pm-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+			nonposted-mmio;
+			ranges;
+
+			reg = <0x2 0x0c900000 0x0 0x100>;
+			power-domains = <&ps_usb>;
+
+			ausbphy0: phy@20c000020 {
+				compatible = "apple,s5l8960x-ausb-phy", "apple,ausb-phy";
+				reg = <0x2 0x0c000020 0x0 0x20>;
+				power-domains = <&ps_usbctrl>;
+				#phy-cells = <1>;
+				/* Tunables to be filled by loader */
+			};
+
+			usbdev: usbdev@20c100000 {
+				compatible = "apple,s5l8960x-dwc2", "apple,dwc2";
+				reg = <0x2 0x0c100000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 162 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clkref>;
+				clock-names = "otg";
+				phys = <&ausbphy0 PHY_TYPE_USB2>;
+				phy-names = "usb2-phy";
+				power-domains = <&ps_usbotg>;
+				resets = <&ps_usbotg>;
+				dr_mode = "peripheral";
+			};
+#if 0
+			ehci0: usb-ehci@20c200000 {
+				compatible = "apple,s5l8960x-ehci", "generic-ehci";
+				reg = <0x2 0x0c200000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 163 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0>;
+			};
+
+			ohci0: usb-ohci@20c300000 {
+				compatible = "apple,s5l8960x-ohci", "generic-ohci";
+				reg = <0x2 0x0c300000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 164 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0_ohci>;
+			};
+
+			ehci1: usb-ehci@20c400000 {
+				compatible = "apple,s5l8960x-ehci", "generic-ehci";
+				reg = <0x2 0x0c400000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 165 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host1>;
+			};
+
+			ohci1: usb-ohci@20c500000 {
+				compatible = "apple,s5l8960x-ohci", "generic-ohci";
+				reg = <0x2 0x0c500000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 166 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host1_ohci>;
+			};
+#endif
 		};
 
 		pmgr: power-management@20e000000 {
