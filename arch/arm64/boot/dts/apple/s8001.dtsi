@@ -140,6 +140,52 @@
 			interrupt-parent = <&aic>;
 			interrupts = <AIC_IRQ 4 IRQ_TYPE_LEVEL_HIGH>;
 		};
+
+		usb-bus {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+			ranges;
+
+			usbdev: usbdev@20c100000 {
+				compatible = "apple,s8000-dwc2", "apple,dwc2";
+				reg = <0x2 0x0c100000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 241 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clkref>;
+				clock-names = "otg";
+				power-domains = <&ps_usbotg>;
+				dr_mode = "peripheral";
+			};
+
+			ehci0: usb-ehci@20c200000 {
+				compatible = "apple,s8000-ehci", "generic-ehci";
+				reg = <0x2 0x0c200000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 242 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0>;
+			};
+
+			ohci0: usb-ohci@20c300000 {
+				compatible = "apple,s8000-ohci", "generic-ohci";
+				reg = <0x2 0x0c300000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 243 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host0_ohci>;
+			};
+
+			ehci1: usb-ehci@20c400000 {
+				compatible = "apple,s8000-ehci", "generic-ehci";
+				reg = <0x2 0x0c400000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 244 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host1>;
+			};
+
+			ehci2: usb-ehci@20c500000 {
+				compatible = "apple,s8000-ehci", "generic-ehci";
+				reg = <0x2 0x0c500000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 245 IRQ_TYPE_LEVEL_HIGH>;
+				power-domains = <&ps_usb2host2>;
+			};
+		};
 	};
 
 	timer {
