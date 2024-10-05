@@ -11,6 +11,7 @@
 
 / {
 	aliases {
+		ausbphy0 = &ausbphy0; /* Used by loader */
 		serial0 = &serial0;
 	};
 
