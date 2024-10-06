@@ -31,6 +31,10 @@ properties:
         enum:
           - brcm,xhci-brcm-v2
           - brcm,bcm7445-xhci
+      - description: Apple A10X SoC xHCI Controller
+        items:
+          - const: apple,t8011-xhci
+          - const: generic-xhci
       - description: Generic xHCI device
         const: xhci-platform
         deprecated: true
@@ -67,7 +71,9 @@ allOf:
       properties:
         compatible:
           contains:
-            const: brcm,bcm2711-xhci
+            enum:
+              - apple,t8011-xhci
+              - brcm,bcm2711-xhci
     then:
       required:
         - power-domains
