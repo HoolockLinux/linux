@@ -126,6 +126,7 @@
 		compatible = "apple,cyclone-pmu";
 		interrupt-parent = <&aic>;
 		interrupts = <AIC_FIQ AIC_CPU_PMU_E IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
 	};
 };
 
