@@ -456,6 +456,31 @@ config AMPERE_ERRATUM_AC03_CPU_38
 
 	  If unsure, say Y.
 
+config ARM64_WORKAROUND_APPLE_FUSION
+	bool "Apple Hurricane-Zephyr: Variations between physical P-core and E-core presented as a single logical core"
+	depends on ARCH_APPLE
+	default y
+	help
+	  This option disables 32-bit EL0 on Apple A10(X) to workaround
+	  the physical "Zephyr" E-cores not supporting 32-bit EL0.
+
+	  In Apple A10(X), there are physical "Hurricane" performance and
+	  "Zephyr" efficiency cores. They are presented as single cores that
+	  can switch between E-mode and P-mode depending on the current p-state.
+	  Only one of the core types may be active at a given time.
+
+	  However, only the "Hurricane" performance cores supports 32-bit EL0,
+	  so this results in a logical core that can only execute 32-bit EL0
+	  in some states. Apple A10(X) only supports 16KB page sizes so
+	  disabling 32-bit EL0 altogether is acceptable.
+
+	  The P-cores and E-cores also have different MPIDR values, so far
+	  nothing needs to be done, as we do not use code paths that read MPIDR
+	  after boot on A10(X).  However, this is cursed enough such that this
+	  workaround will also taint the kernel for it.
+
+	  If unsure, say Y.
+
 config ARM64_WORKAROUND_CLEAN_CACHE
 	bool
 
