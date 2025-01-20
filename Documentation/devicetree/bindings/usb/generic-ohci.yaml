@@ -30,6 +30,11 @@ properties:
               - allwinner,sun8i-v3s-ohci
               - allwinner,sun9i-a80-ohci
               - allwinner,sun20i-d1-ohci
+              - apple,s5l8960x-ohci
+              - apple,s8000-ohci
+              - apple,t7000-ohci
+              - apple,t8010-ohci
+              - apple,t8015-ohci
               - brcm,bcm3384-ohci
               - brcm,bcm63268-ohci
               - brcm,bcm6328-ohci
