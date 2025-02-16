@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/backlight/dlg,da2xxx-bl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Dialog DA2089/DA2207/DA2257/DA2400 PMIC backlight
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description:
+  This module is part of Dialog DA2xxx PMICs. For more details see
+  ../mfd/dlg,da2xxx.yaml.
+
+  A backlight interface in Dialog PMICs. There are two variants
+  differing in how the backlight value is encoded in the registers.
+
+allOf:
+  - $ref: common.yaml#
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: dlg,da2207-bl
+          - const: dlg,da2089-bl
+      - items:
+          - const: dlg,da2400-bl
+          - const: dlg,da2257-bl
+      - const: dlg,da2089-bl
+      - const: dlg,da2257-bl
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
