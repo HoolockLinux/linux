@@ -321,6 +321,19 @@ config BACKLIGHT_APPLE_DWI
 	  To compile this driver as a module, choose M here: the module will
 	  be called apple_dwi_bl.
 
+config BACKLIGHT_APPLE_PMIC
+	tristate "Backlight Driver for Apple PMICs using WLED"
+	depends on I2C && (ARCH_APPLE || COMPILE_TEST)
+	select REGMAP
+	select MFD_SIMPLE_MFD_I2C
+	help
+	  Say Y here to enable driver for backlights connected to WLED output
+	  of Apple Anya/Arabela/Aria/August PMICs, as used on some Apple
+	  iPads.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called apple_pmic_bl.
+
 config BACKLIGHT_QCOM_WLED
 	tristate "Qualcomm PMIC WLED Driver"
 	select REGMAP
