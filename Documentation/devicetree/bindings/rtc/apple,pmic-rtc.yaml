@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/rtc/apple,pmic-rtc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple PMIC RTC device
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description:
+  This module is part of Apple PMICs. For more details
+  see ../mfd/apple,pmic.yaml.
+
+  An RTC device that is part of the PMIC. Additionally an
+  offset stored in an nvmem cell is required to compute the
+  current date and time.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - apple,adi-pmic-rtc
+              - apple,anya-pmic-rtc
+              - apple,arabela-pmic-rtc
+          - const: apple,amber-pmic-rtc
+      - items:
+          - enum:
+              - apple,aria-pmic-rtc
+              - apple,adelyn-pmic-rtc
+              - apple,angel-pmic-rtc
+              - apple,august-pmic-rtc
+              - apple,agnes-pmic-rtc
+              - apple,calpe-pmic-rtc # Counter also exposed via SMC
+          - const: apple,antigua-pmic-rtc
+      - const: apple,amber-pmic-rtc
+      - const: apple,antigua-pmic-rtc
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  nvmem-cells:
+    items:
+      - description:
+          Upper 32 Bit of RTC offset in seconds.
+          # TODO: another cell for ticks specified in 32768 (2^15) Hz
+          # clock ticks
+
+  nvmem-cell-names:
+    items:
+      - const: rtc_offset
+
+  wakeup-source: true
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+...

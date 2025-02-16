@@ -1,0 +1,152 @@
+---
+$id: http://devicetree.org/schemas/mfd/apple,pmic.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple PMICs
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description: |
+  Apple SoCs came with PMICs designed by Dialog Semiconductor before
+  Apple switched to their own PMIC designs. However, the parts used
+  by Apple appears to be sigificantly different from public parts
+  offered by dialog.
+
+  On A7 - A10X SoCs, they are attached over I2C. On A11 and T2 the
+  PMIC is attached via SPMI.
+
+  This binding describes simple MFD - I2C/SPMI device with 16-bit
+  register address and 8-bit values that allows subdevices like RTC,
+  power-off control, backlight and nvmem to be described.
+
+  See also bindings/nvmem/apple,spmi-nvmem.yaml for a simpler
+  binding with only nvmem functions exposed used for newer PMICs.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - apple,adelyn-pmic
+              - apple,adi-pmic
+              - apple,amber-pmic
+              - apple,angel-pmic
+              - apple,antigua-pmic
+              - apple,anya-pmic
+              - apple,arabela-pmic
+              - apple,aria-pmic
+              - apple,august-pmic
+              - apple,autumn-pmic
+          - const: apple,i2c-pmic
+      - items:
+          - enum:
+              - apple,agnes-pmic
+              - apple,calpe-pmic
+          - const: apple,spmi-pmic
+
+  reg:
+    maxItems: 1
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 1
+
+patternProperties:
+  "^backlight(@[0-9a-f]+)?$":
+    $ref: /schemas/leds/backlight/apple,pmic-bl.yaml
+
+  "^rtc(@[0-9a-f]+)?$":
+    $ref: /schemas/rtc/apple,pmic-rtc.yaml
+
+  "^nvmem(@[0-9a-f]+)?$":
+    $ref: /schemas/nvmem/apple,pmic-nvmem.yaml
+
+required:
+  - compatible
+  - reg
+  - "#address-cells"
+  - "#size-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@3c {
+            compatible = "apple,arabela-pmic", "apple,i2c-pmic";
+            reg = <0x3c>;
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            rtc@500 {
+                compatible = "apple,arabela-pmic-rtc", "apple,amber-pmic-rtc";
+                reg = <0x500 0x10>;
+                nvmem-cells = <&rtc_offset_0>;
+                nvmem-cell-names = "rtc_offset";
+            };
+
+            backlight@600 {
+                compatible = "apple,arabela-pmic-bl", "apple,anya-pmic-bl";
+                reg = <0x600 0x2>;
+            };
+
+            nvmem@4000 {
+                compatible = "apple,pmic-nvmem";
+                reg = <0x4000 0x28>;
+
+                nvmem-layout {
+                    compatible = "fixed-layout";
+                    #address-cells = <1>;
+                    #size-cells = <1>;
+
+                    rtc_offset_0: rtc-offset@4 {
+                        reg = <0x4 0x4>;
+                    };
+                };
+            };
+        };
+    };
+
+  - |
+
+    #include <dt-bindings/spmi/spmi.h>
+
+    spmi {
+        #address-cells = <2>;
+        #size-cells = <0>;
+
+        pmic@f {
+            compatible = "apple,agnes-pmic", "apple,spmi-pmic";
+            reg = <0xf SPMI_USID>;
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            rtc@1400 {
+                compatible = "apple,agnes-pmic-rtc", "apple,antigua-pmic-rtc";
+                reg = <0x1400 0x10>;
+                nvmem-cells = <&rtc_offset_1>;
+                nvmem-cell-names = "rtc_offset";
+            };
+
+            nvmem@6000 {
+                compatible = "apple,pmic-nvmem";
+                reg = <0x6000 0x300>;
+
+                nvmem-layout {
+                    compatible = "fixed-layout";
+                    #address-cells = <1>;
+                    #size-cells = <1>;
+
+                    rtc_offset_1: rtc-offset@4 {
+                        reg = <0x4 0x4>;
+                    };
+                };
+            };
+        };
+    };

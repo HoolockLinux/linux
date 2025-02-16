@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/leds/backlight/apple,pmic-bl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple PMIC backlight
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description:
+  This module is part of Apple PMICs. For more details see
+  ../mfd/apple,pmic.yaml.
+
+  A backlight WLED interface in Apple PMICs. There are two variants
+  differing in how the backlight value is encoded in the registers.
+
+allOf:
+  - $ref: common.yaml#
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: apple,arabela-pmic-bl
+          - const: apple,anya-pmic-bl
+      - items:
+          - const: apple,august-pmic-bl
+          - const: apple,aria-pmic-bl
+      - const: apple,anya-pmic-bl
+      - const: apple,aria-pmic-bl
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
