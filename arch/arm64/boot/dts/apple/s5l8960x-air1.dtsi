@@ -54,3 +54,41 @@
 &framebuffer0 {
 	power-domains = <&ps_disp0 &ps_dp>;
 };
+
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "apple,anya-pmic", "apple,i2c-pmic";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		rtc@5c0 {
+			compatible = "apple,anya-pmic-rtc", "apple,amber-pmic-rtc";
+			reg = <0x5c0 0x10>;
+			nvmem-cells = <&rtc_offset>;
+			nvmem-cell-names = "rtc_offset";
+		};
+
+		backlight@600 {
+			compatible = "apple,anya-pmic-bl";
+			reg = <0x600 0x2>;
+		};
+
+		nvmem@4000 {
+			compatible = "apple,pmic-nvmem";
+			reg = <0x4000 0x28>;
+
+			nvmem-layout {
+				compatible = "fixed-layout";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				rtc_offset: rtc-offset@4 {
+					reg = <0x4 0x4>;
+				};
+			};
+		};
+	};
+};
