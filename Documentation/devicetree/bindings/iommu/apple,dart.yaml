@@ -10,7 +10,7 @@ maintainers:
   - Sven Peter <sven@svenpeter.dev>
 
 description: |+
-  Apple SoCs may contain an implementation of their Device Address
+  Apple SoCs may contain implementations of their Device Address
   Resolution Table which provides a mandatory layer of address
   translations for various masters.
 
@@ -22,11 +22,20 @@ description: |+
 
 properties:
   compatible:
-    enum:
-      - apple,t8103-dart
-      - apple,t8103-usb4-dart
-      - apple,t8110-dart
-      - apple,t6000-dart
+    oneOf:
+      - enum:
+          - apple,s5l8960x-dart
+          - apple,t8015-dart
+          - apple,t8103-dart
+          - apple,t8103-usb4-dart
+          - apple,t8110-dart
+          - apple,t6000-dart
+      - items:
+          - enum:
+              - apple,t7000-dart
+              - apple,s8000-dart
+              - apple,t8010-dart
+          - const: apple,s5l8960x-dart
 
   reg:
     maxItems: 1
