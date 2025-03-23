@@ -42,3 +42,19 @@
 		};
 	};
 };
+
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "dlg,da2257", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		backlight@b00 {
+			compatible = "dlg,da2257-bl";
+			reg = <0xb00>;
+		};
+	};
+};
