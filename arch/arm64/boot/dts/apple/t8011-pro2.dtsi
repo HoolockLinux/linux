@@ -41,6 +41,36 @@
 	};
 };
 
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "dlg,da2400", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		backlight@b00 {
+			compatible = "dlg,da2400-bl", "dlg,da2257-bl";
+			reg = <0xb00>;
+		};
+	};
+
+	pmic@40 {
+		compatible = "dlg,da2401", "dlg,i2c-da2xxx";
+		reg = <0x40>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&d2400_pmic {
+	backlight@b00 {
+		compatible = "dlg,da2400-bl", "dlg,da2257-bl";
+		reg = <0xb00>;
+	};
+};
+
 &ps_dcs6 {
 	apple,always-on; /* LPDDR4 interface */
 };

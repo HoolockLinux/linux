@@ -42,6 +42,24 @@
 	};
 };
 
+&i2c0 {
+	status = "okay";
+
+	d2400_pmic: pmic@3c {
+		compatible = "dlg,da2400", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	d2401_pmic: pmic@40 {
+		compatible = "dlg,da2401", "dlg,i2c-da2xxx";
+		reg = <0x40>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
 &serial0 {
 	status = "okay";
 };
