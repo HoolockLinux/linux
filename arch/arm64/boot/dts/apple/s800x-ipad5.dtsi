@@ -45,3 +45,14 @@
 &framebuffer0 {
 	power-domains = <&ps_disp0 &ps_dp>;
 };
+
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "dlg,da2365", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
