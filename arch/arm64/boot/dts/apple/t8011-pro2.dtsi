@@ -41,6 +41,13 @@
 	};
 };
 
+&august_pmic {
+	backlight@b00 {
+		compatible = "apple,august-pmic-bl", "apple,aria-pmic-bl";
+		reg = <0xb00 0x2>;
+	};
+};
+
 &ps_dcs6 {
 	apple,always-on; /* LPDDR4 interface */
 };
