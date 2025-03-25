@@ -53,3 +53,14 @@
 &hurricane_opp10 {
 	status = "okay";
 };
+
+&i2c1 {
+	status = "okay";
+
+	pmic@74 {
+		compatible = "dlg,da2333", "dlg,i2c-da2xxx";
+		reg = <0x74>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};

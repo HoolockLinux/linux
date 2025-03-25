@@ -61,3 +61,14 @@
 &typhoon_opp07 {
 	status = "okay";
 };
+
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "dlg,da2207", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
