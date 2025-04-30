@@ -322,6 +322,57 @@
 			reg = <0x2 0x11180700 0x0 0x100>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+
+			pmic@f {
+				compatible = "apple,calpe-pmic", "apple,spmi-pmic";
+				reg = <0xf SPMI_USID>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				rtc@2603 {
+					compatible = "apple,calpe-pmic-rtc", "apple,antigua-pmic-rtc";
+					reg = <0x2603 0x10>;
+					nvmem-cells = <&rtc_offset>;
+					nvmem-cell-names = "rtc_offset";
+				};
+
+				nvmem@5000 {
+					compatible = "apple,pmic-nvmem";
+					reg = <0x5000 0x300>;
+
+					nvmem-layout {
+						compatible = "fixed-layout";
+						#address-cells = <1>;
+						#size-cells = <1>;
+
+						boot_stage: boot-stage@1 {
+							reg = <0x1 0x1>;
+						};
+
+						boot_error_count: boot-error-count@2,0 {
+							reg = <0x2 0x1>;
+							bits = <0 4>;
+						};
+
+						panic_count: panic-count@2,4 {
+							reg = <0x2 0x1>;
+							bits = <4 4>;
+						};
+
+						boot_error_stage: boot-error-stage@3 {
+							reg = <0x3 0x1>;
+						};
+
+						rtc_offset: rtc-offset@4 {
+							reg = <0x4 0x4>;
+						};
+
+						shutdown_flag: shutdown-flag@f {
+							reg = <0xf 0x1>;
+						};
+					};
+				};
+			};
 		};
 
 		pinctrl_nub: pinctrl@2111f0000 {
