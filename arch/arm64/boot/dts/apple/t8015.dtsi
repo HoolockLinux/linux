@@ -438,6 +438,35 @@
 			reg = <0x2 0x35180700 0x0 0x100>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+
+			pmic@f {
+				compatible = "apple,calpe-pmic", "apple,spmi-pmic";
+				reg = <0xf SPMI_USID>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				rtc@1400 {
+					compatible = "apple,agnes-pmic-rtc", "apple,antigua-pmic-rtc";
+					reg = <0x1400 0x10>;
+					nvmem-cells = <&rtc_offset>;
+					nvmem-cell-names = "rtc_offset";
+				};
+
+				nvmem@6000 {
+					compatible = "apple,pmic-nvmem";
+					reg = <0x6000 0x300>;
+
+					nvmem-layout {
+						compatible = "fixed-layout";
+						#address-cells = <1>;
+						#size-cells = <1>;
+
+						rtc_offset: rtc-offset@4 {
+							reg = <0x4 0x4>;
+						};
+					};
+				};
+			};
 		};
 
 		pinctrl_nub: pinctrl@2351f0000 {
