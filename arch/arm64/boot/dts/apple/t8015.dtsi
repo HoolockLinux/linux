@@ -64,6 +64,9 @@
 			capacity-dmips-mhz = <633>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x8000>;
+			d-cache-size = <0x8000>;
 		};
 
 		cpu_e1: cpu@1 {
@@ -75,6 +78,9 @@
 			capacity-dmips-mhz = <633>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x8000>;
+			d-cache-size = <0x8000>;
 		};
 
 		cpu_e2: cpu@2 {
@@ -86,6 +92,9 @@
 			capacity-dmips-mhz = <633>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x8000>;
+			d-cache-size = <0x8000>;
 		};
 
 		cpu_e3: cpu@3 {
@@ -97,6 +106,9 @@
 			capacity-dmips-mhz = <633>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_0>;
+			i-cache-size = <0x8000>;
+			d-cache-size = <0x8000>;
 		};
 
 		cpu_p0: cpu@10004 {
@@ -108,6 +120,9 @@
 			capacity-dmips-mhz = <1024>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x10000>;
+			d-cache-size = <0x10000>;
 		};
 
 		cpu_p1: cpu@10005 {
@@ -119,6 +134,23 @@
 			capacity-dmips-mhz = <1024>;
 			enable-method = "spin-table";
 			device_type = "cpu";
+			next-level-cache = <&l2_cache_1>;
+			i-cache-size = <0x10000>;
+			d-cache-size = <0x10000>;
+		};
+
+		l2_cache_0: l2-cache-0 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x100000>;
+		};
+
+		l2_cache_1: l2-cache-1 {
+			compatible = "cache";
+			cache-level = <2>;
+			cache-unified;
+			cache-size = <0x800000>;
 		};
 	};
 
