@@ -53,7 +53,7 @@ struct da2xxx_rtc {
 	struct nvmem_cell *nvmem_cell;
 	const struct da2xxx_rtc_regs *regs;
 	u32 base;
-	u32 offset;
+	int offset;
 	bool offset_dirty;
 };
 
@@ -70,7 +70,7 @@ static int da2xxx_rtc_read_nvmem_offset(struct da2xxx_rtc *da_rtc)
 		return rc;
 	}
 
-	if (len != sizeof(u32)) {
+	if (len != sizeof(int)) {
 		dev_dbg(da_rtc->dev, "unexpected nvmem cell size %zu\n", len);
 		kfree(buf);
 		return -EINVAL;
@@ -83,7 +83,7 @@ static int da2xxx_rtc_read_nvmem_offset(struct da2xxx_rtc *da_rtc)
 	return 0;
 }
 
-static int da2xxx_rtc_write_nvmem_offset(struct da2xxx_rtc *da_rtc, u32 offset)
+static int da2xxx_rtc_write_nvmem_offset(struct da2xxx_rtc *da_rtc, int offset)
 {
 	u8 buf[sizeof(u32)];
 	int rc;
@@ -113,10 +113,10 @@ static int da2xxx_rtc_read_raw(struct da2xxx_rtc *da_rtc, u32 *secs)
 	return 0;
 }
 
-static int da2xxx_rtc_update_offset(struct da2xxx_rtc *da_rtc, u32 secs)
+static int da2xxx_rtc_update_offset(struct da2xxx_rtc *da_rtc, int secs)
 {
 	u32 raw_secs;
-	u32 offset;
+	int offset;
 	int rc;
 
 	rc = da2xxx_rtc_read_raw(da_rtc, &raw_secs);
@@ -151,7 +151,7 @@ out:
 static int da2xxx_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct da2xxx_rtc *da_rtc = dev_get_drvdata(dev);
-	u32 secs;
+	int secs;
 	int rc;
 
 	secs = rtc_tm_to_time64(tm);
@@ -168,7 +168,7 @@ static int da2xxx_rtc_set_time(struct device *dev, struct rtc_time *tm)
 static int da2xxx_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	struct da2xxx_rtc *da_rtc = dev_get_drvdata(dev);
-	u32 secs;
+	int secs;
 	int rc;
 
 	rc = da2xxx_rtc_read_raw(da_rtc, &secs);
@@ -259,7 +259,8 @@ static int da2xxx_rtc_probe(struct platform_device *pdev)
 		return PTR_ERR(da_rtc->rtc);
 
 	da_rtc->rtc->ops = &da2xxx_rtc_ops;
-	da_rtc->rtc->range_max = U32_MAX;
+	da_rtc->rtc->range_min = -INT_MAX;
+	da_rtc->rtc->range_max = INT_MAX;
 
 	return devm_rtc_register_device(da_rtc->rtc);
 }
