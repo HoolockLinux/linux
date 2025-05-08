@@ -1392,6 +1392,9 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	if (ret)
 		goto err_exit_phy;
 
+	if (dwc->role_switch_reset_quirk)
+		dwc3_enable_susphy(dwc, true);
+
 	dwc3_core_setup_global_control(dwc);
 	dwc3_core_num_eps(dwc);
 
