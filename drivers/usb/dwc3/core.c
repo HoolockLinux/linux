@@ -2268,6 +2268,7 @@ static int dwc3_probe(struct platform_device *pdev)
 
 			dwc->dr_mode = USB_DR_MODE_OTG;
 			dwc->role_switch_reset_quirk = true;
+			dwc->no_early_roothub_poweroff = true;
 		}
 	}
 
