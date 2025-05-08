@@ -1426,6 +1426,7 @@ static int tps6598x_probe(struct i2c_client *client)
 	return 0;
 
 err_disconnect:
+	typec_set_mode(tps->port, TYPEC_STATE_SAFE);
 	tps6598x_disconnect(tps, 0);
 err_unregister_port:
 	typec_unregister_port(tps->port);
