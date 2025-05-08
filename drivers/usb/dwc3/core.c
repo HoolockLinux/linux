@@ -1364,6 +1364,22 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	 */
 	dwc3_writel(dwc->regs, DWC3_GUID, LINUX_VERSION_CODE);
 
+	/* Apply unknown Apple quirks */
+	if (of_device_is_compatible(dwc->dev->of_node, "apple,dwc3")) {
+		dwc3_writel(dwc->regs,
+			    APPLE_DWC3_CIO_LFPS_OFFSET,
+			    APPLE_DWC3_CIO_LFPS_OFFSET_VALUE);
+		dwc3_writel(dwc->regs,
+			    APPLE_DWC3_CIO_BW_NGT_OFFSET,
+			    APPLE_DWC3_CIO_BW_NGT_OFFSET_VALUE);
+
+		u32 link_timer = dwc3_readl(dwc->regs, APPLE_DWC3_CIO_LINK_TIMER);
+		link_timer &= ~APPLE_DWC3_CIO_PENDING_HP_TIMER;
+		link_timer |= FIELD_PREP(APPLE_DWC3_CIO_PENDING_HP_TIMER,
+				         APPLE_DWC3_CIO_PENDING_HP_TIMER_VALUE);
+		dwc3_writel(dwc->regs, APPLE_DWC3_CIO_LINK_TIMER, link_timer);
+	}
+
 	ret = dwc3_phy_setup(dwc);
 	if (ret)
 		return ret;
