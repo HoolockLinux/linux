@@ -113,6 +113,7 @@ struct tps6598x;
 struct tipd_data {
 	irq_handler_t irq_handler;
 	u64 irq_mask1;
+	struct tps6598x *(*alloc)(struct device *dev);
 	int (*register_port)(struct tps6598x *tps, struct fwnode_handle *node);
 	void (*trace_power_status)(u16 status);
 	void (*trace_status)(u32 status);
@@ -145,6 +146,10 @@ struct tps6598x {
 	struct delayed_work	wq_poll;
 
 	const struct tipd_data *data;
+};
+
+struct cd321x {
+	struct tps6598x tps;
 };
 
 static enum power_supply_property tps6598x_psy_props[] = {
@@ -1292,20 +1297,42 @@ tps25750_register_port(struct tps6598x *tps, struct fwnode_handle *fwnode)
 	return 0;
 }
 
+static struct tps6598x *tps6598x_alloc(struct device *dev)
+{
+	return devm_kzalloc(dev, sizeof(struct tps6598x), GFP_KERNEL);
+}
+
+static struct tps6598x *cd321x_alloc(struct device *dev)
+{
+	struct cd321x *cd321x;
+
+	cd321x = devm_kzalloc(dev, sizeof(struct cd321x), GFP_KERNEL);
+	if (!cd321x)
+		return NULL;
+
+	return &cd321x->tps;
+}
+
 static int tps6598x_probe(struct i2c_client *client)
 {
+	const struct tipd_data *data;
 	struct tps6598x *tps;
 	struct fwnode_handle *fwnode;
 	u32 status;
 	u32 vid;
 	int ret;
 
-	tps = devm_kzalloc(&client->dev, sizeof(*tps), GFP_KERNEL);
+	data = i2c_get_match_data(client);
+	if (!data)
+		return -EINVAL;
+
+	tps = data->alloc(&client->dev);
 	if (!tps)
 		return -ENOMEM;
 
 	mutex_init(&tps->lock);
 	tps->dev = &client->dev;
+	tps->data = data;
 
 	tps->reset = devm_gpiod_get_optional(tps->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(tps->reset))
@@ -1330,10 +1357,6 @@ static int tps6598x_probe(struct i2c_client *client)
 	 */
 	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		tps->i2c_protocol = true;
-
-	tps->data = i2c_get_match_data(client);
-	if (!tps->data)
-		return -EINVAL;
 
 	if (tps->data->switch_power_state) {
 		ret = tps->data->switch_power_state(tps, TPS_SYSTEM_POWER_STATE_S0);
@@ -1519,6 +1542,7 @@ static const struct tipd_data cd321x_data = {
 	.irq_mask1 = APPLE_CD_REG_INT_POWER_STATUS_UPDATE |
 		     APPLE_CD_REG_INT_DATA_STATUS_UPDATE |
 		     APPLE_CD_REG_INT_PLUG_EVENT,
+	.alloc = cd321x_alloc,
 	.register_port = tps6598x_register_port,
 	.trace_power_status = trace_tps6598x_power_status,
 	.trace_status = trace_tps6598x_status,
@@ -1532,6 +1556,7 @@ static const struct tipd_data tps6598x_data = {
 	.irq_mask1 = TPS_REG_INT_POWER_STATUS_UPDATE |
 		     TPS_REG_INT_DATA_STATUS_UPDATE |
 		     TPS_REG_INT_PLUG_EVENT,
+	.alloc = tps6598x_alloc,
 	.register_port = tps6598x_register_port,
 	.trace_power_status = trace_tps6598x_power_status,
 	.trace_status = trace_tps6598x_status,
@@ -1545,6 +1570,7 @@ static const struct tipd_data tps25750_data = {
 	.irq_mask1 = TPS_REG_INT_POWER_STATUS_UPDATE |
 		     TPS_REG_INT_DATA_STATUS_UPDATE |
 		     TPS_REG_INT_PLUG_EVENT,
+	.alloc = tps6598x_alloc,
 	.register_port = tps25750_register_port,
 	.trace_power_status = trace_tps25750_power_status,
 	.trace_status = trace_tps25750_status,
