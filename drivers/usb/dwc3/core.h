@@ -1155,6 +1155,8 @@ struct dwc3_scratchpad_array {
  *		  before PM suspend.
  * @role_switch_reset_quirk: set to force reinitialization after any role switch
  * @no_early_roothub_poweroff: set to skip early root hub port power off
+ * @synchronous_drd_switch: set to perform role switches synchronously instead
+ * 			    of using a workqueue
  * @imod_interval: set the interrupt moderation interval in 250ns
  *			increments or 0 to disable.
  * @max_cfg_eps: current max number of IN eps used across all USB configs.
@@ -1394,6 +1396,7 @@ struct dwc3 {
 
 	unsigned		role_switch_reset_quirk:1;
 	unsigned		no_early_roothub_poweroff:1;
+	unsigned		synchronous_drd_switch:1;
 
 	u16			imod_interval;
 
