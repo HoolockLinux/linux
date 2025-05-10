@@ -1082,7 +1082,7 @@ static void m1_pmu_write_counter(struct perf_event *event, u64 value)
 
 static int apple_pmu_get_event_idx(struct pmu_hw_events *cpuc,
 				struct perf_event *event,
-				const u16 event_affinities[M1_PMU_CFG_EVENT])
+				const u16 event_affinities[])
 {
 	unsigned long evtype = event->hw.config_base & M1_PMU_CFG_EVENT;
 	unsigned long affinity = event_affinities[evtype];
