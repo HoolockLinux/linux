@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config APFS_FS
+	tristate "Apple file system support"
+	select LIBCRC32C
+	select ZLIB_INFLATE
+	select NLS
+	select BUFFER_HEAD
+	select FS_IOMAP
+	select LEGACY_DIRECT_IO
+	help
+	  If you say Y here, you will be able to mount APFS volumes which is
+	  used since macOS 10.13 as well as iOS 10.3 and replaces Extended HFS.
+	  Write access is experimental and may corrupt your container, so it
+	  is only allowed with a non-standard option "readwrite".
+
+	  To compile this file system support as a module, choose M here: the
+	  module will be called apfs.
+
