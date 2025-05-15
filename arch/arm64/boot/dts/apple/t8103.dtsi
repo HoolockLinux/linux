@@ -862,6 +862,108 @@
 			resets = <&ps_ans2>;
 		};
 
+		efuse@23d2bc000 {
+			compatible = "apple,t8103-efuses", "apple,efuses";
+			reg = <0x2 0x3d2bc000 0x0 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			atcphy0_auspll_rodco_bias_adjust: efuse@433,2 {
+				reg = <0x433 1>;
+				bits = <2 3>;
+			};
+
+			atcphy0_auspll_rodco_encap: efuse@433,5 {
+				reg = <0x433 1>;
+				bits = <5 2>;
+			};
+
+			atcphy0_auspll_dtc_vreg_adjust: efuse@433,7 {
+				reg = <0x433 2>;
+				bits = <7 3>;
+			};
+
+			atcphy0_auspll_fracn_dll_start_capcode: efuse@434,2 {
+				reg = <0x434 1>;
+				bits = <2 2>;
+			};
+
+			atcphy0_aus_cmn_shm_vreg_trim: efuse@434,4 {
+				reg = <0x434 2>;
+				bits = <4 5>;
+			};
+
+			atcphy0_cio3pll_dco_coarsebin0: efuse@435,1 {
+				reg = <0x435 1>;
+				bits = <1 6>;
+			};
+
+			atcphy0_cio3pll_dco_coarsebin1: efuse@435,7 {
+				reg = <0x435 2>;
+				bits = <7 6>;
+			};
+
+			atcphy0_cio3pll_dll_start_capcode: efuse@436,5 {
+				reg = <0x436 1>;
+				bits = <5 2>;
+			};
+
+			atcphy0_cio3pll_dtc_vreg_adjust: efuse@436,7 {
+				reg = <0x436 2>;
+				bits = <7 3>;
+			};
+
+			atcphy1_auspll_rodco_bias_adjust: efuse@438,4 {
+				reg = <0x438 1>;
+				bits = <4 3>;
+			};
+
+			atcphy1_auspll_rodco_encap: efuse@438,7 {
+				reg = <0x438 2>;
+				bits = <7 2>;
+			};
+
+			atcphy1_auspll_dtc_vreg_adjust: efuse@439,1 {
+				reg = <0x439 1>;
+				bits = <1 3>;
+			};
+
+			atcphy1_auspll_fracn_dll_start_capcode: efuse@439,4 {
+				reg = <0x439 1>;
+				bits = <4 2>;
+			};
+
+			atcphy1_aus_cmn_shm_vreg_trim: efuse@439,6 {
+				reg = <0x439 2>;
+				bits = <6 5>;
+			};
+
+			atcphy1_cio3pll_dco_coarsebin0: efuse@43a,3 {
+				reg = <0x43a 2>;
+				bits = <3 6>;
+			};
+
+			atcphy1_cio3pll_dco_coarsebin1: efuse@43b,1 {
+				reg = <0x43b 1>;
+				bits = <1 6>;
+			};
+
+			atcphy1_cio3pll_dll_start_capcode: efuse@43b,7 {
+				reg = <0x43b 1>;
+				bits = <7 1>;
+			};
+
+			atcphy1_cio3pll_dll_start_capcode_workaround: efuse@43c,0 {
+				reg = <0x43c 1>;
+				bits = <0 1>;
+			};
+
+			atcphy1_cio3pll_dtc_vreg_adjust: efuse@43c,1 {
+				reg = <0x43c 1>;
+				bits = <1 3>;
+			};
+		};
+
 		pcie0_dart_0: iommu@681008000 {
 			compatible = "apple,t8103-dart";
 			reg = <0x6 0x81008000 0x0 0x4000>;
