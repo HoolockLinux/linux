@@ -5,6 +5,7 @@
  * Copyright (C) The Asahi Linux Contributors
  */
 
+#include <linux/align.h>
 #include <linux/io.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
@@ -19,12 +20,32 @@ static int apple_efuses_read(void *context, unsigned int offset, void *val,
 			     size_t bytes)
 {
 	struct apple_efuses_priv *priv = context;
-	u32 *dst = val;
+	u8 *dst = val;
 
-	while (bytes >= sizeof(u32)) {
-		*dst++ = readl_relaxed(priv->fuses + offset);
-		bytes -= sizeof(u32);
-		offset += sizeof(u32);
+	/* Unaligned access causes SErrors, thus align to 32-bit boundary first */
+	if (!IS_ALIGNED(offset, sizeof(u32))) {
+		unsigned int aligned_offset = ALIGN_DOWN(offset, sizeof(u32));
+		unsigned int offset_within_fuse = offset - aligned_offset;
+		size_t bytes_to_copy = min(sizeof(u32) - offset_within_fuse,
+					   bytes);
+
+		u32 fuse = readl_relaxed(priv->fuses + aligned_offset);
+		memcpy(dst, ((u8 *)&fuse) + offset_within_fuse, bytes_to_copy);
+
+		bytes -= bytes_to_copy;
+		dst += bytes_to_copy;
+		offset += bytes_to_copy;
+	}
+
+	while (bytes) {
+		size_t bytes_to_copy = min(sizeof(u32), bytes);
+
+		u32 fuse = readl_relaxed(priv->fuses + offset);
+		memcpy(dst, (u8 *)&fuse, bytes_to_copy);
+
+		bytes -= bytes_to_copy;
+		dst += bytes_to_copy;
+		offset += bytes_to_copy;
 	}
 
 	return 0;
@@ -39,8 +60,8 @@ static int apple_efuses_probe(struct platform_device *pdev)
 		.add_legacy_fixed_of_cells = true,
 		.read_only = true,
 		.reg_read = apple_efuses_read,
-		.stride = sizeof(u32),
-		.word_size = sizeof(u32),
+		.stride = 1,
+		.word_size = 1,
 		.name = "apple_efuses_nvmem",
 		.id = NVMEM_DEVID_AUTO,
 		.root_only = true,
