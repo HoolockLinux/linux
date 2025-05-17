@@ -638,6 +638,8 @@ static irqreturn_t cd321x_interrupt(int irq, void *data)
 	if (!tps6598x_read_status(tps, &status))
 		goto err_unlock;
 
+	tps->status = status;
+
 	if (event & APPLE_CD_REG_INT_POWER_STATUS_UPDATE) {
 		if (!tps6598x_read_power_status(tps))
 			goto err_unlock;
@@ -1543,6 +1545,7 @@ static int tps6598x_probe(struct i2c_client *client)
 		ret = -ENODEV;
 		goto err_clear_mask;
 	}
+	tps->status = status;
 
 	/*
 	 * This fwnode has a "compatible" property, but is never populated as a
