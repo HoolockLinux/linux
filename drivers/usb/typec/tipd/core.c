@@ -23,6 +23,8 @@
 #include <linux/workqueue.h>
 #include <linux/firmware.h>
 
+#include <drm/drm_connector.h>
+
 #include "tps6598x.h"
 #include "trace.h"
 
@@ -215,6 +217,8 @@ struct cd321x {
 
 	struct typec_mux *mux;
 	struct typec_mux_state state;
+
+	struct fwnode_handle *connector_fwnode;
 
 	struct mutex update_lock;
 	struct cd321x_status update_status;
@@ -755,6 +759,8 @@ static void cd321x_update_work(struct work_struct *work)
 	bool was_disconnected = st.status_changed & TPS_STATUS_PLUG_PRESENT;
 
 	bool usb_connection = st.data_status & (TPS_DATA_STATUS_USB2_CONNECTION | TPS_DATA_STATUS_USB3_CONNECTION);
+	bool dp_hpd = st.data_status & CD321X_DATA_STATUS_HPD_LEVEL;
+	bool dp_hpd_changed = st.data_status_changed & CD321X_DATA_STATUS_HPD_LEVEL;
 
 	enum usb_role old_role = usb_role_switch_get_role(tps->role_sw);
 	enum usb_role new_role = USB_ROLE_NONE;
@@ -780,6 +786,11 @@ static void cd321x_update_work(struct work_struct *work)
 	/* If we are switching from an active role, transition to USB_ROLE_NONE first */
 	if (old_role != USB_ROLE_NONE && (new_role != old_role || was_disconnected)) {
 		usb_role_switch_set_role(tps->role_sw, USB_ROLE_NONE);
+	}
+
+	/* If HPD was removed, notify DRM (this is a no-op if already removed) */
+	if (cd321x->connector_fwnode && (!dp_hpd || dp_hpd_changed)) {
+		drm_connector_oob_hotplug_event(cd321x->connector_fwnode, connector_status_disconnected);
 	}
 
 	/* Process partner disconnection or change */
@@ -836,6 +847,11 @@ static void cd321x_update_work(struct work_struct *work)
 
 	/* Launch the USB role switch */
 	usb_role_switch_set_role(tps->role_sw, new_role);
+
+	/* If HPD was asserted, notify DRM (this is a no-op if already asserted) */
+	if (cd321x->connector_fwnode && dp_hpd) {
+		drm_connector_oob_hotplug_event(cd321x->connector_fwnode, connector_status_connected);
+	}
 
 	power_supply_changed(tps->psy);
 }
@@ -1291,6 +1307,13 @@ cd321x_register_port(struct tps6598x *tps, struct fwnode_handle *fwnode)
 	ret = cd321x_register_port_altmodes(cd321x);
 	if (ret)
 		goto err_unregister_port;
+
+	if (fwnode_property_present(fwnode, "displayport"))
+		cd321x->connector_fwnode = fwnode_find_reference(fwnode, "displayport", 0);
+	else
+		cd321x->connector_fwnode = NULL;
+	if (IS_ERR(cd321x->connector_fwnode))
+		cd321x->connector_fwnode = NULL;
 	
 	cd321x->mux = fwnode_typec_mux_get(fwnode);
 	if (IS_ERR(cd321x->mux)) {
