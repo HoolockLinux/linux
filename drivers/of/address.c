@@ -784,7 +784,6 @@ int of_pci_dma_range_parser_init(struct of_pci_range_parser *parser,
 	return parser_init(parser, node, "dma-ranges");
 }
 EXPORT_SYMBOL_GPL(of_pci_dma_range_parser_init);
-#define of_dma_range_parser_init of_pci_dma_range_parser_init
 
 struct of_pci_range *of_pci_range_parser_one(struct of_pci_range_parser *parser,
 						struct of_pci_range *range)
