@@ -12,3 +12,15 @@ config PHY_APPLE_ATC
 
 	  If M is selected the module will be called 'phy-apple-atc'.
 
+config PHY_APPLE_AUSB
+	tristate "Apple AUSB PHY"
+	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
+	select GENERIC_PHY
+	select APPLE_USBCOMPLEX
+	help
+	  Enable this to add support for the Apple AUSB PHY found in
+	  Apple Silicon A-series SoCs before Type-C PHY is introduced.
+	  This driver supports USB2.
+
+	  If M is selected the module will be called 'phy-apple-ausb'.
+
