@@ -11,3 +11,17 @@ config PHY_APPLE_ATC
 	  USB3, USB4, Thunderbolt, and DisplayPort.
 
 	  If M is selected the module will be called 'phy-apple-atc'.
+
+config PHY_APPLE_AUSB
+	tristate "Apple AUSB PHY"
+	depends on (ARM64 && ARCH_APPLE) || (COMPILE_TEST && !GENERIC_ATOMIC64)
+	select GENERIC_PHY
+	select APPLE_USBCOMPLEX
+	help
+	  Enable this to add support for the Apple AUSB PHY found in
+	  Apple Silicon A-series SoCs which is the type of PHY before
+	  Apple Type-C PHY.
+
+	  This driver supports USB2.
+
+	  If M is selected the module will be called 'phy-apple-ausb'.

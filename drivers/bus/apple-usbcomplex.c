@@ -163,7 +163,7 @@ static void apple_usbcomplex_remove(struct platform_device *pdev)
 {
 	const void *data = of_device_get_match_data(&pdev->dev);
 
-	if (pdev->driver_override || data)
+	if (device_has_driver_override(&pdev->dev) || data)
 		return;
 
 	pm_runtime_disable(&pdev->dev);
