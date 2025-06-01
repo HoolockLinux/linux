@@ -174,6 +174,7 @@ static inline void __iomem *of_iomap(struct device_node *device, int index)
 	return NULL;
 }
 #endif
+#define of_dma_range_parser_init of_pci_dma_range_parser_init
 #define of_range_parser_init of_pci_range_parser_init
 
 static inline const __be32 *of_get_address(struct device_node *dev, int index,
