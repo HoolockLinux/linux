@@ -3,6 +3,8 @@
 # Makefile for the bus drivers.
 #
 
+obj-$(CONFIG_APPLE_USBCOMPLEX)	+= apple-usbcomplex.o
+
 # Interconnect bus drivers for ARM platforms
 obj-$(CONFIG_ARM_CCI)		+= arm-cci.o
 obj-$(CONFIG_ARM_INTEGRATOR_LM)	+= arm-integrator-lm.o
