@@ -38,8 +38,8 @@
 /* T8011 remap registers */
 #define USBX_USB3DEV_REMAP_CTL_T8011	0x18
 #define USBX_USB2DEV_REMAP_CTL_T8011	0x24
-#define USBX_EHCI_REMAP_CTL_T8011	0x74
-#define USBX_XHCI_REMAP_CTL_T8011	0x84
+#define USBX_EHCI_REMAP_CTL_T8011	0x14 /* 0x74 */
+#define USBX_XHCI_REMAP_CTL_T8011	0x24 /* 0x84 */
 
 /* T8015 remap registers */
 #define USBX_EHCI0_REMAP_CTL_T8015	0x18
@@ -51,12 +51,14 @@
 
 struct apple_usbcomplex_hw {
 	u32 remap_regs[5];
+	u32 hi_remap_regs[2];
 	u32 (*remap_reg_value)(u32 hi_bits);
 	void (*enable)(void __iomem *base);
 };
 
 struct apple_usbcomplex {
 	void __iomem *base;
+	void __iomem *hi_remap_regs;
 	struct clk_bulk_data *clks;
 	const struct apple_usbcomplex_hw *hw;
 	u32 hi_bits;
@@ -87,8 +89,12 @@ static void apple_usbcomplex_init(struct apple_usbcomplex *complex) {
 
 	for (int i = 0; i < sizeof(complex->hw->remap_regs)/sizeof(u32); i++) {
 		if (complex->hw->remap_regs[i])
-			writel(remap_val, complex->base +
-				complex->hw->remap_regs[i]);
+			writel(remap_val, complex->base + complex->hw->remap_regs[i]);
+	}
+
+	for (int i = 0; i < sizeof(complex->hw->hi_remap_regs)/sizeof(u32); i++) {
+		if (complex->hw->hi_remap_regs[i])
+			writel(remap_val, complex->hi_remap_regs + complex->hw->hi_remap_regs[i]);
 	}
 };
 
@@ -97,14 +103,11 @@ static int apple_usbcomplex_probe(struct platform_device *pdev)
 	const struct device *dev = &pdev->dev;
 	const struct of_dev_auxdata *lookup = dev_get_platdata(dev);
 	struct device_node *np = dev->of_node;
-	const struct of_device_id *match;
 	struct resource *res;
 	struct of_range_parser parser;
 	struct of_range range;
 	struct apple_usbcomplex *complex;
 	int ret;
-
-	match = of_match_device(dev->driver->of_match_table, dev);
 
 	ret = of_dma_range_parser_init(&parser, np);
 
@@ -112,14 +115,11 @@ static int apple_usbcomplex_probe(struct platform_device *pdev)
 		return ret;
 
 	for_each_of_range(&parser, &range) {
-		dev_info(&pdev->dev, "dma ranges: %llx %llx %llx\n", range.size, range.cpu_addr, range.bus_addr);
-
 		if (range.size != BIT(32) || range.cpu_addr & U32_MAX || range.bus_addr != 0)
 			return -EINVAL;
 
 		break;
 	}
-	dev_info(&pdev->dev, "dma ranges OK\n");
 
 	complex = devm_kzalloc(&pdev->dev, sizeof(*complex), GFP_KERNEL);
 
@@ -129,6 +129,14 @@ static int apple_usbcomplex_probe(struct platform_device *pdev)
         complex->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
         if (IS_ERR(complex->base))
                 return PTR_ERR(complex->base);
+
+	complex->hi_remap_regs = devm_platform_get_and_ioremap_resource(pdev, 1, &res);
+	if (IS_ERR(complex->hi_remap_regs)) {
+		if (complex->hi_remap_regs != ERR_PTR(-EINVAL))
+			return PTR_ERR(complex->hi_remap_regs);
+		else
+			complex->hi_remap_regs = NULL;
+	}
 
 	complex->hw = of_device_get_match_data(&pdev->dev);
 	if (!complex->hw)
@@ -176,7 +184,9 @@ static const struct apple_usbcomplex_hw s5l8960x_usbcomplex = {
 static const struct apple_usbcomplex_hw t8011_usbcomplex = {
 	.remap_regs = {
 	  USBX_USB3DEV_REMAP_CTL_T8011,
-	  USBX_USB2DEV_REMAP_CTL_T8011,
+	  USBX_USB2DEV_REMAP_CTL_T8011
+	},
+	.hi_remap_regs = {
 	  USBX_EHCI_REMAP_CTL_T8011,
 	  USBX_XHCI_REMAP_CTL_T8011
 	},
@@ -196,9 +206,9 @@ static const struct apple_usbcomplex_hw t8015_usbcomplex = {
 };
 
 static const struct of_device_id apple_usbcomplex_of_match[] = {
-	{ .compatible = "apple,s5l8960x-usbcomplex", .data = &s5l8960x_usbcomplex },
-	{ .compatible = "apple,t8011-usbcomplex", .data = &t8011_usbcomplex },
-	{ .compatible = "apple,t8015-usbcomplex", .data = &t8015_usbcomplex },
+	{ .compatible = "apple,s5l8960x-usb-complex", .data = &s5l8960x_usbcomplex },
+	{ .compatible = "apple,t8011-usb-complex", .data = &t8011_usbcomplex },
+	{ .compatible = "apple,t8015-usb-complex", .data = &t8015_usbcomplex },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, apple_usbcomplex_of_match);
@@ -207,7 +217,7 @@ static struct platform_driver apple_usbcomplex_driver = {
 	.probe = apple_usbcomplex_probe,
 	.remove = apple_usbcomplex_remove,
 	.driver = {
-		.name = "apple-usbcomplex",
+		.name = "apple-usb-complex",
 		.of_match_table = apple_usbcomplex_of_match,
 	},
 };

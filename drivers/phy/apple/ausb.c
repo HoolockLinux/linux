@@ -146,13 +146,13 @@ static int ausb_usbphy_probe(struct platform_device *pdev) {
 	if (!aphy)
 		return -ENOMEM;
 
-	if (of_property_read_u32(np, "cfg0-device", &aphy->cfg0_device))
+	if (of_property_read_u32(np, "apple,cfg0-device", &aphy->cfg0_device))
 		return -ENODEV;
-	if (of_property_read_u32(np, "cfg1-device", &aphy->cfg1_device))
+	if (of_property_read_u32(np, "apple,cfg1-device", &aphy->cfg1_device))
 		return -ENODEV;
-	if (of_property_read_u32(np, "cfg0-host", &aphy->cfg0_host))
+	if (of_property_read_u32(np, "apple,cfg0-host", &aphy->cfg0_host))
 		return -ENODEV;
-	if (of_property_read_u32(np, "cfg1-host", &aphy->cfg1_host))
+	if (of_property_read_u32(np, "apple,cfg1-host", &aphy->cfg1_host))
 		return -ENODEV;
 
 	aphy->dev = dev;
