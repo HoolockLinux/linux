@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/apple,ausb-phy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple AUSB PHY
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description:
+  Apple AUSB PHY is the USB PHY used in Apple SoCs before the introduced
+  of the Apple Type-C PHY (ATCPHY). It supports USB 2.0, and, on T8011,
+  USB 3.0 operation. This binding describes USB 2.0 operation only as
+  supported by the driver.
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - apple,s5l8960x-ausb-phy
+          - apple,t7000-ausb-phy
+          - apple,s8000-ausb-phy
+          - apple,t8010-ausb-phy
+          - apple,t8011-ausb-phy
+          - apple,t8015-ausb-phy
+      - const: apple,ausb-phy
+
+  reg:
+    maxItems: 1
+
+  "#phy-cells":
+    const: 1
+
+  mode-switch:
+    type: boolean
+    description:
+      The PHY handles muxing between USB 2.0 Host and Device modes.
+
+  power-domains:
+    minItems: 1
+    maxItems: 1
+
+  apple,cfg0-device:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Tunable 0 for device mode.
+
+  apple,cfg1-device:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Tunable 1 for device mode.
+
+  apple,cfg0-host:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Tunable 0 for host mode.
+
+  apple,cfg1-host:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Tunable 1 for host mode.
+
+required:
+  - compatible
+  - reg
+  - "#phy-cells"
+  # The binding also requires tunables and they are filled by loader
+
+additionalProperties: false
+
+examples:
+  - |
+    phy@20c000060 {
+        compatible = "apple,t8015-ausb-phy", "apple,ausb-phy";
+        reg = <0x2 0x0c000060 0x0 0x20>;
+        #phy-cells = <1>;
+        power-domains = <&ps_usbctlreg>;
+        /* Tunables to be filled by loader */
+    };
