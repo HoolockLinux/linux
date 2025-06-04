@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/efi.h>
 #include <linux/init.h>
+#include <linux/of.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/debug.h>
 #include <linux/sched/task_stack.h>
@@ -938,6 +939,18 @@ void __noreturn arm64_serror_panic(struct pt_regs *regs, unsigned long esr)
 		smp_processor_id(), esr, esr_get_class_string(esr));
 	if (regs)
 		__show_regs(regs);
+
+#ifdef CONFIG_ARCH_APPLE
+	#define SYS_IMP_APL_L2C_ERR_STS sys_reg(3, 3, 15, 8, 0)
+	#define SYS_IMP_APL_L2C_ERR_ADR sys_reg(3, 3, 15, 9, 0)
+	#define SYS_IMP_APL_L2C_ERR_INF sys_reg(3, 3, 15, 10, 0)
+
+	if (of_machine_is_compatible("apple,arm-platform")) {
+		pr_crit("L2C_ERR_STS: 0x%llx\n", read_sysreg_s(SYS_IMP_APL_L2C_ERR_STS));
+		pr_crit("L2C_ERR_ADR: 0x%llx\n", read_sysreg_s(SYS_IMP_APL_L2C_ERR_ADR));
+		pr_crit("L2C_ERR_INF: 0x%llx\n", read_sysreg_s(SYS_IMP_APL_L2C_ERR_INF));
+	}
+#endif
 
 	nmi_panic(regs, "Asynchronous SError Interrupt");
 
