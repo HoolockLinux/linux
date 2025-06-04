@@ -34,6 +34,15 @@ properties:
           - const: apple,asc-mailbox-v4
 
       - description:
+          Marin mailboxes is the oldest variant of ASC mailboxes used to
+          communicate with 64-bit coprocessors. On Apple A11 these mailboxes
+          are used to communicate with the Secure Enclave Processor (SEP)
+          and the NVMe coprocessor.
+        items:
+          - const: apple,t8015-marin-mailbox
+          - const: apple,marin-mailbox
+
+      - description:
           M3 mailboxes are an older variant with a slightly different MMIO
           interface still found on the M1. It is used for the Thunderbolt
           co-processors.
