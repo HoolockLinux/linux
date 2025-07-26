@@ -46,6 +46,8 @@
 #define APPLE_SPI_STATUS_RXCOMPLETE	BIT(0)
 #define APPLE_SPI_STATUS_TXRXTHRESH	BIT(1)
 #define APPLE_SPI_STATUS_TXCOMPLETE	BIT(2)
+#define APPLE_SPI_STATUS_TXFIFO		GENMASK(10, 6)
+#define APPLE_SPI_STATUS_RXFIFO		GENMASK(15, 11)
 
 #define APPLE_SPI_PIN			0x00c
 #define APPLE_SPI_PIN_KEEP_MOSI		BIT(0)
@@ -120,10 +122,16 @@
  */
 #define APPLE_SPI_TIMEOUT_MS		200
 
+enum apple_spi_type {
+	APPLE_SPI_S5L = 1,
+	APPLE_SPI_MC
+};
+
 struct apple_spi {
-	void __iomem      *regs;        /* MMIO register address */
-	struct clk        *clk;         /* bus clock */
-	struct completion done;         /* wake-up from interrupt */
+	void __iomem       *regs;       /* MMIO register address */
+	struct clk          *clk;       /* bus clock */
+	struct completion   done;       /* wake-up from interrupt */
+	enum apple_spi_type type;       /* Hardware type */
 };
 
 static inline void reg_write(struct apple_spi *spi, int offset, u32 value)
@@ -149,8 +157,13 @@ static void apple_spi_init(struct apple_spi *spi)
 {
 	/* Set CS high (inactive) and disable override and auto-CS */
 	reg_write(spi, APPLE_SPI_PIN, APPLE_SPI_PIN_CS);
-	reg_mask(spi, APPLE_SPI_SHIFTCFG, APPLE_SPI_SHIFTCFG_OVERRIDE_CS, 0);
-	reg_mask(spi, APPLE_SPI_PINCFG, APPLE_SPI_PINCFG_CS_IDLE_VAL, APPLE_SPI_PINCFG_KEEP_CS);
+
+	if (spi->type == APPLE_SPI_MC) {
+		reg_mask(spi, APPLE_SPI_SHIFTCFG, APPLE_SPI_SHIFTCFG_OVERRIDE_CS, 0);
+		reg_mask(spi, APPLE_SPI_PINCFG, APPLE_SPI_PINCFG_CS_IDLE_VAL,
+			APPLE_SPI_PINCFG_KEEP_CS);
+	}
+
 
 	/* Reset FIFOs */
 	reg_write(spi, APPLE_SPI_CTRL, APPLE_SPI_CTRL_RX_RESET | APPLE_SPI_CTRL_TX_RESET);
@@ -161,13 +174,15 @@ static void apple_spi_init(struct apple_spi *spi)
 		  FIELD_PREP(APPLE_SPI_CFG_MODE, APPLE_SPI_CFG_MODE_IRQ) |
 		  FIELD_PREP(APPLE_SPI_CFG_WORD_SIZE, APPLE_SPI_CFG_WORD_SIZE_8B));
 
-	/* Disable IRQs */
-	reg_write(spi, APPLE_SPI_IE_FIFO, 0);
-	reg_write(spi, APPLE_SPI_IE_XFER, 0);
+	if (spi->type == APPLE_SPI_MC) {
+		/* Disable IRQs */
+		reg_write(spi, APPLE_SPI_IE_FIFO, 0);
+		reg_write(spi, APPLE_SPI_IE_XFER, 0);
 
-	/* Disable delays */
-	reg_write(spi, APPLE_SPI_DELAY_PRE, 0);
-	reg_write(spi, APPLE_SPI_DELAY_POST, 0);
+		/* Disable delays */
+		reg_write(spi, APPLE_SPI_DELAY_PRE, 0);
+		reg_write(spi, APPLE_SPI_DELAY_POST, 0);
+	}
 }
 
 static int apple_spi_prepare_message(struct spi_controller *ctlr, struct spi_message *msg)
@@ -202,8 +217,16 @@ static bool apple_spi_prep_transfer(struct apple_spi *spi, struct spi_transfer *
 	reg_write(spi, APPLE_SPI_CLKDIV, min_t(u32, cr, APPLE_SPI_CLKDIV_MAX));
 
 	/* Update bits per word */
-	reg_mask(spi, APPLE_SPI_SHIFTCFG, APPLE_SPI_SHIFTCFG_BITS,
-		 FIELD_PREP(APPLE_SPI_SHIFTCFG_BITS, t->bits_per_word));
+	switch (spi->type) {
+		case APPLE_SPI_S5L:
+			reg_mask(spi, APPLE_SPI_CFG, APPLE_SPI_CFG_WORD_SIZE,
+				 FIELD_PREP(APPLE_SPI_CFG_WORD_SIZE, t->bits_per_word >> 4));
+			break;
+		case APPLE_SPI_MC:
+			reg_mask(spi, APPLE_SPI_SHIFTCFG, APPLE_SPI_SHIFTCFG_BITS,
+				 FIELD_PREP(APPLE_SPI_SHIFTCFG_BITS, t->bits_per_word));
+			break;
+	}
 
 	/* We will want to poll if the time we need to wait is
 	 * less than the context switching time.
@@ -215,7 +238,27 @@ static bool apple_spi_prep_transfer(struct apple_spi *spi, struct spi_transfer *
 	return (200000 * t->bits_per_word * fifo_threshold) <= t->speed_hz;
 }
 
-static irqreturn_t apple_spi_irq(int irq, void *dev_id)
+static irqreturn_t apple_spi_s5l_irq(int irq, void *dev_id)
+{
+	struct apple_spi *spi = dev_id;
+	u32 status = reg_read(spi, APPLE_SPI_STATUS);
+	u32 txrxthresh = status & APPLE_SPI_STATUS_TXRXTHRESH;
+	u32 rxcomplete = status & APPLE_SPI_STATUS_RXCOMPLETE;
+
+	if (rxcomplete) {
+		reg_mask(spi, APPLE_SPI_CFG, APPLE_SPI_CFG_IE_RXCOMPLETE, 0);
+
+		if (txrxthresh) {
+			reg_mask(spi, APPLE_SPI_CFG, APPLE_SPI_CFG_IE_TXRXTHRESH, 0);
+			complete(&spi->done);
+			return IRQ_HANDLED;
+		}
+	}
+
+	return IRQ_NONE;
+}
+
+static irqreturn_t apple_spi_mc_irq(int irq, void *dev_id)
 {
 	struct apple_spi *spi = dev_id;
 	u32 fifo = reg_read(spi, APPLE_SPI_IF_FIFO) & reg_read(spi, APPLE_SPI_IE_FIFO);
@@ -232,22 +275,51 @@ static irqreturn_t apple_spi_irq(int irq, void *dev_id)
 	return IRQ_NONE;
 }
 
+static int apple_spi_s5l_poll(struct apple_spi *spi, unsigned long timeout)
+{
+	u32 txrxthresh, rxcomplete, status;
+
+	do {
+		status = reg_read(spi, APPLE_SPI_STATUS);
+		txrxthresh = status & APPLE_SPI_STATUS_TXRXTHRESH;
+		rxcomplete = status & APPLE_SPI_STATUS_RXCOMPLETE;
+		if (time_after(jiffies, timeout))
+			return -ETIMEDOUT;
+
+	} while (!txrxthresh || !rxcomplete);
+
+	return 0;
+}
+
+static int apple_spi_mc_poll(struct apple_spi *spi, unsigned long timeout, u32 fifo_bit, u32 xfer_bit)
+{
+	u32 fifo, xfer;
+
+	do {
+		fifo = reg_read(spi, APPLE_SPI_IF_FIFO);
+		xfer = reg_read(spi, APPLE_SPI_IF_XFER);
+		if (time_after(jiffies, timeout))
+			return -ETIMEDOUT;
+
+	} while (!((fifo & fifo_bit) || (xfer & xfer_bit)));
+
+	return 0;
+}
+
+
 static int apple_spi_wait(struct apple_spi *spi, u32 fifo_bit, u32 xfer_bit, int poll)
 {
 	int ret = 0;
 
 	if (poll) {
-		u32 fifo, xfer;
 		unsigned long timeout = jiffies + APPLE_SPI_TIMEOUT_MS * HZ / 1000;
 
-		do {
-			fifo = reg_read(spi, APPLE_SPI_IF_FIFO);
-			xfer = reg_read(spi, APPLE_SPI_IF_XFER);
-			if (time_after(jiffies, timeout)) {
-				ret = -ETIMEDOUT;
-				break;
-			}
-		} while (!((fifo & fifo_bit) || (xfer & xfer_bit)));
+		switch (spi->type) {
+			case APPLE_SPI_S5L:
+				return apple_spi_s5l_poll(spi, timeout);
+			case APPLE_SPI_MC:
+				return apple_spi_mc_poll(spi, timeout, fifo_bit, xfer_bit);
+		}
 	} else {
 		reinit_completion(&spi->done);
 		reg_write(spi, APPLE_SPI_IE_XFER, xfer_bit);
@@ -272,7 +344,15 @@ static void apple_spi_tx(struct apple_spi *spi, const void **tx_ptr, u32 *left,
 	if (!*tx_ptr)
 		return;
 
-	inuse = FIELD_GET(APPLE_SPI_FIFOSTAT_LEVEL_TX, reg_read(spi, APPLE_SPI_FIFOSTAT));
+	switch (spi->type) {
+		case APPLE_SPI_S5L:
+			inuse = FIELD_GET(APPLE_SPI_STATUS_TXFIFO, reg_read(spi, APPLE_SPI_STATUS));
+			break;
+		case APPLE_SPI_MC:
+			inuse = FIELD_GET(APPLE_SPI_FIFOSTAT_LEVEL_TX, reg_read(spi, APPLE_SPI_FIFOSTAT));
+			break;
+
+	}
 	words = wrote = min_t(u32, *left, APPLE_SPI_FIFO_DEPTH - inuse);
 
 	if (!words)
@@ -317,7 +397,16 @@ static void apple_spi_rx(struct apple_spi *spi, void **rx_ptr, u32 *left,
 	if (!*rx_ptr)
 		return;
 
-	words = read = FIELD_GET(APPLE_SPI_FIFOSTAT_LEVEL_RX, reg_read(spi, APPLE_SPI_FIFOSTAT));
+	switch (spi->type) {
+		case APPLE_SPI_S5L:
+			words = read = FIELD_GET(APPLE_SPI_STATUS_RXFIFO,
+				reg_read(spi, APPLE_SPI_STATUS));
+			break;
+		case APPLE_SPI_MC:
+			words = read = FIELD_GET(APPLE_SPI_FIFOSTAT_LEVEL_RX,
+				reg_read(spi, APPLE_SPI_FIFOSTAT));
+			break;
+	};
 	WARN_ON(words > *left);
 
 	if (!words)
@@ -382,15 +471,17 @@ static int apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device
 	/* Reset FIFOs */
 	reg_write(spi, APPLE_SPI_CTRL, APPLE_SPI_CTRL_RX_RESET | APPLE_SPI_CTRL_TX_RESET);
 
-	/* Clear IRQ flags */
-	reg_write(spi, APPLE_SPI_IF_XFER, ~0);
-	reg_write(spi, APPLE_SPI_IF_FIFO, ~0);
+	if (spi->type == APPLE_SPI_MC) {
+		/* Clear IRQ flags */
+		reg_write(spi, APPLE_SPI_IF_XFER, ~0);
+		reg_write(spi, APPLE_SPI_IF_FIFO, ~0);
 
-	/* Determine transfer completion flags we wait for */
-	if (tx_ptr)
-		xfer_flags |= APPLE_SPI_XFER_TXCOMPLETE;
-	if (rx_ptr)
-		xfer_flags |= APPLE_SPI_XFER_RXCOMPLETE;
+		/* Determine transfer completion flags we wait for */
+		if (tx_ptr)
+			xfer_flags |= APPLE_SPI_XFER_TXCOMPLETE;
+		if (rx_ptr)
+			xfer_flags |= APPLE_SPI_XFER_RXCOMPLETE;
+	}
 
 	/* Set transfer length */
 	reg_write(spi, APPLE_SPI_TXCNT, remaining_tx);
@@ -404,6 +495,9 @@ static int apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device
 
 	/* TX again since a few words get popped off immediately */
 	apple_spi_tx(spi, &tx_ptr, &remaining_tx, bytes_per_word);
+
+	if (spi->type == APPLE_SPI_S5L)
+		xfer_flags = FIELD_GET(APPLE_SPI_STATUS_TXFIFO, reg_read(spi, APPLE_SPI_STATUS));
 
 	while (xfer_flags) {
 		fifo_flags = 0;
@@ -421,12 +515,17 @@ static int apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device
 			goto err;
 		}
 
-		/* Stop waiting on transfer halves once they complete */
-		xfer_flags &= ~reg_read(spi, APPLE_SPI_IF_XFER);
+		if (spi->type == APPLE_SPI_MC) {
+			/* Stop waiting on transfer halves once they complete */
+			xfer_flags &= ~reg_read(spi, APPLE_SPI_IF_XFER);
+		}
 
 		/* Transmit and receive everything we can */
 		apple_spi_tx(spi, &tx_ptr, &remaining_tx, bytes_per_word);
 		apple_spi_rx(spi, &rx_ptr, &remaining_rx, bytes_per_word);
+
+		if (spi->type == APPLE_SPI_S5L)
+			xfer_flags = FIELD_GET(APPLE_SPI_STATUS_TXFIFO, reg_read(spi, APPLE_SPI_STATUS));
 	}
 
 	/*
@@ -444,9 +543,11 @@ static int apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device
 			remaining_rx);
 
 err:
-	fifo_flags = reg_read(spi, APPLE_SPI_IF_FIFO);
-	WARN_ON(fifo_flags & APPLE_SPI_FIFO_TXOVERFLOW);
-	WARN_ON(fifo_flags & APPLE_SPI_FIFO_RXUNDERRUN);
+	if (spi->type == APPLE_SPI_MC) {
+		fifo_flags = reg_read(spi, APPLE_SPI_IF_FIFO);
+		WARN_ON(fifo_flags & APPLE_SPI_FIFO_TXOVERFLOW);
+		WARN_ON(fifo_flags & APPLE_SPI_FIFO_RXUNDERRUN);
+	}
 
 	/* Stop transfer */
 	reg_write(spi, APPLE_SPI_CTRL, 0);
@@ -476,12 +577,25 @@ static int apple_spi_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(spi->clk),
 				     "Unable to find or enable bus clock\n");
 
+	spi->type = (enum apple_spi_type)of_device_get_match_data(&pdev->dev);
+	if (!spi->type)
+		return -ENODEV;
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
 
-	ret = devm_request_irq(&pdev->dev, irq, apple_spi_irq, 0,
+	switch (spi->type) {
+		case APPLE_SPI_S5L:
+			ret = devm_request_irq(&pdev->dev, irq, apple_spi_s5l_irq, 0,
 			       dev_name(&pdev->dev), spi);
+			break;
+		case APPLE_SPI_MC:
+			ret = devm_request_irq(&pdev->dev, irq, apple_spi_mc_irq, 0,
+			       dev_name(&pdev->dev), spi);
+			break;
+
+	}
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Unable to bind to interrupt\n");
 
@@ -511,7 +625,8 @@ static int apple_spi_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id apple_spi_of_match[] = {
-	{ .compatible = "apple,spi", },
+	{ .compatible = "apple,s5l-spi", .data = (void*)APPLE_SPI_S5L },
+	{ .compatible = "apple,spi", .data = (void*)APPLE_SPI_MC },
 	{}
 };
 MODULE_DEVICE_TABLE(of, apple_spi_of_match);
