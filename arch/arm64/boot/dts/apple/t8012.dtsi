@@ -221,6 +221,20 @@
 			status = "disabled";
 		};
 
+		spi0: spi@20a400000 {
+			compatible = "apple,t8010-spi", "apple,s5l-spi";
+			reg = <0x2 0x0a400000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 280 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkref>;
+			pinctrl-0 = <&spi0_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_spi0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		serial0: serial@20a600000 {
 			compatible = "apple,s5l-uart";
 			reg = <0x2 0x0a600000 0x0 0x4000>;
@@ -327,6 +341,13 @@
 			i2c4_pins: i2c4-pins {
 				pinmux = <APPLE_PINMUX(121, 1)>,
 					 <APPLE_PINMUX(120, 1)>;
+			};
+
+			spi0_pins: spi0-pins {
+				pinmux = <APPLE_PINMUX(2, 1)>,
+					 <APPLE_PINMUX(3, 1)>,
+					 <APPLE_PINMUX(4, 1)>,
+					 <APPLE_PINMUX(5, 1)>;
 			};
 		};
 

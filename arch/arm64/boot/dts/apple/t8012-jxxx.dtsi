@@ -15,6 +15,7 @@
 
 	aliases {
 		ausbphy0 = &ausbphy0; /* Used by loader */
+		nvram = &nvram;
 		serial0 = &serial0;
 	};
 
@@ -37,6 +38,30 @@
 		ranges;
 
 		/* To be filled by loader */
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0x0>;
+		spi-max-frequency = <25000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			nvram: partition@304000 {
+				label = "nvram";
+				/* To be filled by the loader */
+				reg = <0x0 0x0>;
+				status = "disabled";
+            };
+		};
+
 	};
 };
 
