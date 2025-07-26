@@ -5,6 +5,17 @@
 
 menu "Bus devices"
 
+config APPLE_USBCOMPLEX
+	bool "Apple USB Complex"
+	depends on HAS_DMA && HAS_IOMEM && OF
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  Driver for Apple USB Complex which remaps 32-bit addresses so 32-bit
+	  DMA devices can be used without a real IOMMU. This driver configures
+	  the remap according to the "dma-ranges" property to remove the need for
+	  bootloader state required for USB to work. Say y here if you want
+	  USB support on pre-atcphy Apple deviecs.
+
 config ARM_CCI
 	bool
 
