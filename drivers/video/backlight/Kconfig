@@ -249,6 +249,19 @@ config BACKLIGHT_PWM
 	  If you have a LCD backlight adjustable by PWM, say Y to enable
 	  this driver.
 
+config BACKLIGHT_DA2XXX
+	tristate "Backlight Driver for DA2089/DA2207/DA2257/DA2400 using WLED"
+	depends on I2C && (ARCH_APPLE || COMPILE_TEST)
+	select REGMAP
+	select MFD_SIMPLE_MFD_I2C
+	help
+	  Say Y here to enable driver for backlights connected to WLED output
+	  of DA2089, DA2207, DA2257 or DA2400 PMICs, as used on some Apple
+	  iPads.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called da2xxx_bl.
+
 config BACKLIGHT_DA903X
 	tristate "Backlight Driver for DA9030/DA9034 using WLED"
 	depends on PMIC_DA903X
