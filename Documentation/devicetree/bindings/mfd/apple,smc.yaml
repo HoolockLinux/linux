@@ -18,6 +18,8 @@ properties:
     items:
       - enum:
           - apple,t6000-smc
+          - apple,t8012-smc
+          - apple,t8015-smc
           - apple,t8103-smc
           - apple,t8112-smc
       - const: apple,smc
@@ -34,6 +36,10 @@ properties:
 
   mboxes:
     maxItems: 1
+
+  power-domains:
+    maxItems: 1
+    description: SMC CPU power domain
 
   gpio:
     $ref: /schemas/gpio/apple,smc-gpio.yaml
