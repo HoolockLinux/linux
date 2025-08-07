@@ -17,7 +17,10 @@ properties:
   compatible:
     oneOf:
       - items:
-          - const: apple,t6020-smc
+          - enum:
+              - apple,t6020-smc
+              - apple,t8012-smc
+              - apple,t8015-smc
           - const: apple,t8103-smc
       - items:
           - enum:
@@ -39,6 +42,10 @@ properties:
 
   mboxes:
     maxItems: 1
+
+  power-domains:
+    maxItems: 1
+    description: SMC CPU power domain
 
   gpio:
     $ref: /schemas/gpio/apple,smc-gpio.yaml
