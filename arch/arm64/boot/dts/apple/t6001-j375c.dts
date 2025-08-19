@@ -16,3 +16,5 @@
 	compatible = "apple,j375c", "apple,t6001", "apple,arm-platform";
 	model = "Apple Mac Studio (M1 Max, 2022)";
 };
+
+#include "hwmon-fan-dual.dtsi"
