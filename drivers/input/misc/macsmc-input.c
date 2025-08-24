@@ -124,10 +124,16 @@ static int macsmc_input_probe(struct platform_device *pdev)
 	struct macsmc_input *smcin;
 	bool have_lid, have_power, have_volup, have_voldown, have_mute;
 	int error;
+	bool is_t8012;
+
+	is_t8012 = of_device_is_compatible(pdev->dev.parent->of_node,
+		"apple,t8012-smc");
 
 	/* Bail early if this SMC does not support lid nor any buttons */
 	have_lid = apple_smc_key_exists(smc, SMC_KEY(MSLD));
-	have_power = apple_smc_key_exists(smc, SMC_KEY(bHLD));
+
+	/* T2's SMC reports the power button but no corresponding key */
+	have_power = apple_smc_key_exists(smc, SMC_KEY(bHLD)) || is_t8012;
 	have_volup = apple_smc_key_exists(smc, SMC_KEY(bVUP));
 	have_voldown = apple_smc_key_exists(smc, SMC_KEY(bVDN));
 	have_mute = apple_smc_key_exists(smc, SMC_KEY(bRIN));
@@ -171,7 +177,7 @@ static int macsmc_input_probe(struct platform_device *pdev)
 			input_report_switch(smcin->input, SW_LID, val);
 	}
 
-	if (have_power) {
+	if (have_power && !is_t8012) {
 		u32 val;
 
 		error = apple_smc_read_u32(smc, SMC_KEY(bHLD), &val);
