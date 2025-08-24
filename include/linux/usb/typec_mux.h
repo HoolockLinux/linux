@@ -45,6 +45,7 @@ void *typec_switch_get_drvdata(struct typec_switch_dev *sw);
 struct typec_mux_state {
 	struct typec_altmode *alt;
 	unsigned long mode;
+	enum typec_data_role data_role;
 	void *data;
 };
 
