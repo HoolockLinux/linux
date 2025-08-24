@@ -33,6 +33,9 @@ struct macsmc_input {
 #define SMC_EV_LID 0x7203
 
 #define BTN_POWER		0x01 /* power button on e.g. Mac Mini chasis pressed */
+#define BTN_VOLUMEUP		0x02 /* Volume up */
+#define BTN_VOLUMEDOWN		0x03 /* Volume down */
+#define BTN_MUTE		0x04 /* Mute switch */
 #define BTN_TOUCHID		0x06 /* combined TouchID / power button on MacBooks pressed */
 #define BTN_POWER_HELD_SHORT	0xfe /* power button briefly held down */
 #define BTN_POWER_HELD_LONG	0x00 /* power button held down; sent just before forced poweroff */
@@ -52,6 +55,18 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 			return;
 
 		input_report_key(smcin->input, KEY_POWER, state);
+		input_sync(smcin->input);
+		break;
+	case BTN_VOLUMEUP:
+		input_report_key(smcin->input, KEY_VOLUMEUP, state);
+		input_sync(smcin->input);
+		break;
+	case BTN_VOLUMEDOWN:
+		input_report_key(smcin->input, KEY_VOLUMEDOWN, state);
+		input_sync(smcin->input);
+		break;
+	case BTN_MUTE:
+		input_report_key(smcin->input, KEY_MUTE, state);
 		input_sync(smcin->input);
 		break;
 	case BTN_POWER_HELD_SHORT: /* power button held down; ignore */
@@ -107,13 +122,17 @@ static int macsmc_input_probe(struct platform_device *pdev)
 {
 	struct apple_smc *smc = dev_get_drvdata(pdev->dev.parent);
 	struct macsmc_input *smcin;
-	bool have_lid, have_power;
+	bool have_lid, have_power, have_volup, have_voldown, have_mute;
 	int error;
 
-	/* Bail early if this SMC neither supports power button nor lid events */
+	/* Bail early if this SMC does not support lid nor any buttons */
 	have_lid = apple_smc_key_exists(smc, SMC_KEY(MSLD));
 	have_power = apple_smc_key_exists(smc, SMC_KEY(bHLD));
-	if (!have_lid && !have_power)
+	have_volup = apple_smc_key_exists(smc, SMC_KEY(bVUP));
+	have_voldown = apple_smc_key_exists(smc, SMC_KEY(bVDN));
+	have_mute = apple_smc_key_exists(smc, SMC_KEY(bRIN));
+	if (!have_lid && !have_power && !have_volup && !have_voldown
+	    && !have_mute)
 		return -ENODEV;
 
 	smcin = devm_kzalloc(&pdev->dev, sizeof(*smcin), GFP_KERNEL);
@@ -135,6 +154,12 @@ static int macsmc_input_probe(struct platform_device *pdev)
 		input_set_capability(smcin->input, EV_SW, SW_LID);
 	if (have_power)
 		input_set_capability(smcin->input, EV_KEY, KEY_POWER);
+	if (have_volup)
+		input_set_capability(smcin->input, EV_KEY, KEY_VOLUMEUP);
+	if (have_voldown)
+		input_set_capability(smcin->input, EV_KEY, KEY_VOLUMEDOWN);
+	if (have_mute)
+		input_set_capability(smcin->input, EV_KEY, KEY_MUTE);
 
 	if (have_lid) {
 		u8 val;
@@ -154,6 +179,36 @@ static int macsmc_input_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev, "Failed to read initial power button state\n");
 		else
 			input_report_key(smcin->input, KEY_POWER, val & 1);
+	}
+
+	if (have_volup) {
+		u32 val;
+
+		error = apple_smc_read_u32(smc, SMC_KEY(bVUP), &val);
+		if (error < 0)
+			dev_warn(&pdev->dev, "Failed to read initial volume up button state\n");
+		else
+			input_report_key(smcin->input, KEY_VOLUMEUP, val & 1);
+	}
+
+	if (have_voldown) {
+		u32 val;
+
+		error = apple_smc_read_u32(smc, SMC_KEY(bVDN), &val);
+		if (error < 0)
+			dev_warn(&pdev->dev, "Failed to read initial volume down button state\n");
+		else
+			input_report_key(smcin->input, KEY_VOLUMEDOWN, val & 1);
+	}
+
+	if (have_mute) {
+		u32 val;
+
+		error = apple_smc_read_u32(smc, SMC_KEY(bRIN), &val);
+		if (error < 0)
+			dev_warn(&pdev->dev, "Failed to read initial mute switch state\n");
+		else
+			input_report_key(smcin->input, KEY_MUTE, val & 1);
 	}
 
 	error = input_register_device(smcin->input);
