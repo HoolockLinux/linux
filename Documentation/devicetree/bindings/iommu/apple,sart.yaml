@@ -16,12 +16,15 @@ description:
   special support in the consumer driver is required since not all DMA
   transactions of a single device are subject to SART filtering.
 
-  SART1 has first been used since at least the A11 (iPhone 8 and iPhone X)
-  and allows 36 bit of physical address space and filter entries with sizes
-  up to 24 bit.
+  SART0 is used on A11 (iPhone 8 and iPhone X), as well as on T2. It allows
+  36-bit of physical address space and filter entries with sizes up to
+  31-bit.
 
-  SART2, first seen in A14 and M1, allows 36 bit of physical address space
-  and filter entry size up to 36 bit.
+  SART1 is a revision found on A13 and A14 that changes the configuration
+  flags of the memory regions.
+
+  SART2, first seen in M1, allows 36 bit of physical address space and
+  filter entry size up to 36 bit.
 
   SART3, first seen in M1 Pro/Max, extends both the address space and filter
   entry size to 42 bit.
@@ -34,6 +37,7 @@ properties:
           - const: apple,t6000-sart
       - enum:
           - apple,t6000-sart
+          - apple,t8015-sart
           - apple,t8103-sart
 
   reg:
