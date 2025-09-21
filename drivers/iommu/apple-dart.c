@@ -46,6 +46,22 @@
 #define DART_PARAMS2 0x04
 #define DART_PARAMS2_BYPASS_SUPPORT BIT(0)
 
+/* S5L8960X registers */
+#define DART_S5L8960X_STREAM_COMMAND 0x0
+#define DART_S5L8960X_STREAM_COMMAND_INVALIDATE BIT(1)
+#define DART_S5L8960X_STREAM_COMMAND_BUSY BIT(3)
+#define DART_S5L8960X_STREAM_COMMAND_SID_SHIFT 8
+
+#define DART_S5L8960X_STREAM_COMMAND_SELECT(sid) BIT(8 + sid)
+
+#define DART_S5L8960X_ERROR	0x10
+#define DART_S5L8960X_ERROR_ADDR_LO	0x1c
+
+#define DART_S5L8960X_TCR	0xc
+#define DART_S5L8960X_TCR_BITS_PER_STREAM	8
+
+#define DART_S5L8960X_TTBR	0x40
+
 /* T8020/T6000 registers */
 
 #define DART_T8020_STREAM_COMMAND 0x20
@@ -154,39 +170,10 @@
 struct apple_dart_stream_map;
 
 enum dart_type {
+	DART_S5L8960X,
 	DART_T8020,
 	DART_T6000,
 	DART_T8110,
-};
-
-struct apple_dart_hw {
-	enum dart_type type;
-	irqreturn_t (*irq_handler)(int irq, void *dev);
-	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
-
-	u32 oas;
-	enum io_pgtable_fmt fmt;
-
-	int max_sid_count;
-
-	u32 lock;
-	u32 lock_bit;
-
-	u32 error;
-
-	u32 enable_streams;
-
-	u32 tcr;
-	u32 tcr_enabled;
-	u32 tcr_disabled;
-	u32 tcr_bypass;
-	u32 tcr_4level;
-
-	u32 ttbr;
-	u32 ttbr_valid;
-	u32 ttbr_addr_field_shift;
-	u32 ttbr_shift;
-	int ttbr_count;
 };
 
 /*
@@ -228,6 +215,38 @@ struct apple_dart {
 
 	u32 save_tcr[DART_MAX_STREAMS];
 	u32 save_ttbr[DART_MAX_STREAMS][DART_MAX_TTBR];
+};
+
+struct apple_dart_hw {
+	enum dart_type type;
+	irqreturn_t (*irq_handler)(int irq, void *dev);
+	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
+	u32 (*read_tcr)(struct apple_dart *dart, u32 sid);
+	void (*write_tcr)(struct apple_dart *dart, u32 sid, u32 val);
+
+	u32 oas;
+	enum io_pgtable_fmt fmt;
+
+	int max_sid_count;
+
+	u32 lock;
+	u32 lock_bit;
+
+	u32 error;
+
+	u32 enable_streams;
+
+	u32 tcr;
+	u32 tcr_enabled;
+	u32 tcr_disabled;
+	u32 tcr_bypass;
+	u32 tcr_4level;
+
+	u32 ttbr;
+	u32 ttbr_valid;
+	u32 ttbr_addr_field_shift;
+	u32 ttbr_shift;
+	int ttbr_count;
 };
 
 /*
@@ -322,7 +341,35 @@ apple_dart_hw_enable_translation(struct apple_dart_stream_map *stream_map, int l
 	WARN_ON(levels != 3 && levels != 4);
 	WARN_ON(levels == 4 && !dart->four_level);
 	for_each_set_bit(sid, stream_map->sidmap, dart->num_streams)
-		writel(tcr, dart->regs + DART_TCR(dart, sid));
+		dart->hw->write_tcr(dart, sid, tcr);
+}
+
+static u32 apple_dart_s5l8960x_read_tcr(struct apple_dart *dart, u32 sid)
+{
+	WARN_ON(sid >= 4);
+	u32 tcr = readl(dart->regs + dart->hw->tcr);
+
+	return (tcr >> (sid * 8)) & 0xff;
+}
+
+static u32 apple_dart_t8020_read_tcr(struct apple_dart *dart, u32 sid)
+{
+	return readl(dart->regs + DART_TCR(dart, sid));
+}
+
+static void apple_dart_s5l8960x_write_tcr(struct apple_dart *dart, u32 sid, u32 val)
+{
+	WARN_ON(sid >= 4);
+	u32 tcr = readl(dart->regs + dart->hw->tcr);
+
+	tcr &= 0xff << (sid * DART_S5L8960X_TCR_BITS_PER_STREAM);
+	tcr |= val;
+	writel(tcr, dart->regs + dart->hw->tcr);
+}
+
+static void apple_dart_t8020_write_tcr(struct apple_dart *dart, u32 sid, u32 val)
+{
+	writel(val, dart->regs + DART_TCR(dart, sid));
 }
 
 static void apple_dart_hw_disable_dma(struct apple_dart_stream_map *stream_map)
@@ -376,6 +423,37 @@ apple_dart_hw_clear_all_ttbrs(struct apple_dart_stream_map *stream_map)
 
 	for (i = 0; i < stream_map->dart->hw->ttbr_count; ++i)
 		apple_dart_hw_clear_ttbr(stream_map, i);
+}
+
+static int
+apple_dart_s5l8960x_hw_stream_command(struct apple_dart_stream_map *stream_map,
+			     u32 command)
+{
+	unsigned long flags;
+	int ret, i;
+	u32 command_reg;
+
+	spin_lock_irqsave(&stream_map->dart->lock, flags);
+
+	for (i = 0; i < BITS_TO_U32(stream_map->dart->num_streams); i++)
+		writel(command | DART_S5L8960X_STREAM_COMMAND_SELECT(i)
+			,stream_map->dart->regs + DART_S5L8960X_STREAM_COMMAND);
+
+	ret = readl_poll_timeout_atomic(
+		stream_map->dart->regs + DART_S5L8960X_STREAM_COMMAND, command_reg,
+		!(command_reg & DART_S5L8960X_STREAM_COMMAND_BUSY), 1,
+		DART_STREAM_COMMAND_BUSY_TIMEOUT);
+
+	spin_unlock_irqrestore(&stream_map->dart->lock, flags);
+
+	if (ret) {
+		dev_err(stream_map->dart->dev,
+			"busy bit did not clear after command %x for streams %lx\n",
+			command, stream_map->sidmap[0]);
+		return ret;
+	}
+
+	return 0;
 }
 
 static int
@@ -449,6 +527,13 @@ apple_dart_t8110_hw_tlb_command(struct apple_dart_stream_map *stream_map,
 }
 
 static int
+apple_dart_s5l8960x_hw_invalidate_tlb(struct apple_dart_stream_map *stream_map)
+{
+	return apple_dart_s5l8960x_hw_stream_command(
+		stream_map, DART_S5L8960X_STREAM_COMMAND_INVALIDATE);
+}
+
+static int
 apple_dart_t8020_hw_invalidate_tlb(struct apple_dart_stream_map *stream_map)
 {
 	return apple_dart_t8020_hw_stream_command(
@@ -482,8 +567,9 @@ static int apple_dart_hw_reset(struct apple_dart *dart)
 	apple_dart_hw_clear_all_ttbrs(&stream_map);
 
 	/* enable all streams globally since TCR is used to control isolation */
-	for (i = 0; i < BITS_TO_U32(dart->num_streams); i++)
-		writel(U32_MAX, dart->regs + dart->hw->enable_streams + 4 * i);
+	if (dart->hw->enable_streams)
+		for (i = 0; i < BITS_TO_U32(dart->num_streams); i++)
+			writel(U32_MAX, dart->regs + dart->hw->enable_streams + 4 * i);
 
 	/* clear any pending errors before the interrupt is unmasked */
 	writel(readl(dart->regs + dart->hw->error), dart->regs + dart->hw->error);
@@ -1018,6 +1104,42 @@ static const struct iommu_ops apple_dart_iommu_ops = {
 	}
 };
 
+static irqreturn_t apple_dart_s5l8960x_irq(int irq, void *dev)
+{
+	struct apple_dart *dart = dev;
+	const char *fault_name = NULL;
+	u32 error = readl(dart->regs + DART_S5L8960X_ERROR);
+	u32 error_code = FIELD_GET(DART_T8020_ERROR_CODE, error);
+	u32 addr_lo = readl(dart->regs + DART_S5L8960X_ERROR_ADDR_LO);
+	u64 addr = 0x800000000 | addr_lo;
+	u8 stream_idx = FIELD_GET(DART_T8020_ERROR_STREAM, error);
+
+	if (!(error & DART_T8020_ERROR_FLAG))
+		return IRQ_NONE;
+
+	/* there should only be a single bit set but let's use == to be sure */
+	if (error_code == DART_T8020_ERROR_READ_FAULT)
+		fault_name = "READ FAULT";
+	else if (error_code == DART_T8020_ERROR_WRITE_FAULT)
+		fault_name = "WRITE FAULT";
+	else if (error_code == DART_T8020_ERROR_NO_PTE)
+		fault_name = "NO PTE FOR IOVA";
+	else if (error_code == DART_T8020_ERROR_NO_PMD)
+		fault_name = "NO PMD FOR IOVA";
+	else if (error_code == DART_T8020_ERROR_NO_TTBR)
+		fault_name = "NO TTBR FOR IOVA";
+	else
+		fault_name = "unknown";
+
+	dev_err_ratelimited(
+		dart->dev,
+		"translation fault: status:0x%x stream:%d code:0x%x (%s) at 0x%llx",
+		error, stream_idx, error_code, fault_name, addr);
+
+	writel(error, dart->regs + DART_T8020_ERROR);
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t apple_dart_t8020_irq(int irq, void *dev)
 {
 	struct apple_dart *dart = dev;
@@ -1135,12 +1257,18 @@ static int apple_dart_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	dart_params[0] = readl(dart->regs + DART_PARAMS1);
-	dart_params[1] = readl(dart->regs + DART_PARAMS2);
-	dart->pgsize = 1 << FIELD_GET(DART_PARAMS1_PAGE_SHIFT, dart_params[0]);
-	dart->supports_bypass = dart_params[1] & DART_PARAMS2_BYPASS_SUPPORT;
+	if (dart->hw->type == DART_S5L8960X) {
+		dart->pgsize = SZ_4K;
+		dart->supports_bypass = 0; /* TODO, TCR Translation off == Bypass */
+	} else {
+		dart_params[0] = readl(dart->regs + DART_PARAMS1);
+		dart_params[1] = readl(dart->regs + DART_PARAMS2);
+		dart->pgsize = 1 << FIELD_GET(DART_PARAMS1_PAGE_SHIFT, dart_params[0]);
+		dart->supports_bypass = dart_params[1] & DART_PARAMS2_BYPASS_SUPPORT;
+	}
 
 	switch (dart->hw->type) {
+	case DART_S5L8960X:
 	case DART_T8020:
 	case DART_T6000:
 		dart->ias = 32;
@@ -1215,10 +1343,40 @@ static void apple_dart_remove(struct platform_device *pdev)
 	clk_bulk_disable_unprepare(dart->num_clks, dart->clks);
 }
 
+static const struct apple_dart_hw apple_dart_hw_s5l8960x = {
+	.type = DART_S5L8960X,
+	.irq_handler = apple_dart_s5l8960x_irq,
+	.invalidate_tlb = apple_dart_s5l8960x_hw_invalidate_tlb,
+	.read_tcr = apple_dart_s5l8960x_read_tcr,
+	.write_tcr = apple_dart_s5l8960x_write_tcr,
+	.oas = 36,
+	.fmt = APPLE_DART,
+	.max_sid_count = 4,
+
+	.enable_streams = 0,
+	.lock = 0,
+	.lock_bit = 0,
+
+	.error = DART_S5L8960X_ERROR,
+
+	.tcr = DART_S5L8960X_TCR,
+	.tcr_enabled = DART_T8020_TCR_TRANSLATE_ENABLE,
+	.tcr_disabled = 0,
+	.tcr_bypass = 0,
+
+	.ttbr = DART_S5L8960X_TTBR,
+	.ttbr_valid = DART_T8020_TTBR_VALID,
+	.ttbr_addr_field_shift = DART_T8020_TTBR_ADDR_FIELD_SHIFT,
+	.ttbr_shift = DART_T8020_TTBR_SHIFT,
+	.ttbr_count = 4,
+};
+
 static const struct apple_dart_hw apple_dart_hw_t8103 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 16,
@@ -1245,6 +1403,8 @@ static const struct apple_dart_hw apple_dart_hw_t8103_usb4 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 64,
@@ -1271,6 +1431,8 @@ static const struct apple_dart_hw apple_dart_hw_t6000 = {
 	.type = DART_T6000,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 42,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 16,
@@ -1297,6 +1459,8 @@ static const struct apple_dart_hw apple_dart_hw_t8110 = {
 	.type = DART_T8110,
 	.irq_handler = apple_dart_t8110_irq,
 	.invalidate_tlb = apple_dart_t8110_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 256,
 
@@ -1325,7 +1489,7 @@ static __maybe_unused int apple_dart_suspend(struct device *dev)
 	unsigned int sid, idx;
 
 	for (sid = 0; sid < dart->num_streams; sid++) {
-		dart->save_tcr[sid] = readl(dart->regs + DART_TCR(dart, sid));
+		dart->save_tcr[sid] = dart->hw->read_tcr(dart, sid);
 		for (idx = 0; idx < dart->hw->ttbr_count; idx++)
 			dart->save_ttbr[sid][idx] =
 				readl(dart->regs + DART_TTBR(dart, sid, idx));
@@ -1350,7 +1514,7 @@ static __maybe_unused int apple_dart_resume(struct device *dev)
 		for (idx = 0; idx < dart->hw->ttbr_count; idx++)
 			writel(dart->save_ttbr[sid][idx],
 			       dart->regs + DART_TTBR(dart, sid, idx));
-		writel(dart->save_tcr[sid], dart->regs + DART_TCR(dart, sid));
+		dart->hw->write_tcr(dart, sid, dart->save_tcr[sid]);
 	}
 
 	return 0;
@@ -1359,6 +1523,7 @@ static __maybe_unused int apple_dart_resume(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(apple_dart_pm_ops, apple_dart_suspend, apple_dart_resume);
 
 static const struct of_device_id apple_dart_of_match[] = {
+	{ .compatible = "apple,s5l8960x-dart", .data = &apple_dart_hw_s5l8960x },
 	{ .compatible = "apple,t8103-dart", .data = &apple_dart_hw_t8103 },
 	{ .compatible = "apple,t8103-usb4-dart", .data = &apple_dart_hw_t8103_usb4 },
 	{ .compatible = "apple,t8110-dart", .data = &apple_dart_hw_t8110 },
