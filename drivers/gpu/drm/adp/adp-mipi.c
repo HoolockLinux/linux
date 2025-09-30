@@ -60,6 +60,7 @@ static int adp_dsi_gen_pkt_hdr_write(struct adp_mipi_drv_private *adp, u32 hdr_v
 static int adp_dsi_write(struct adp_mipi_drv_private *adp,
 			 const struct mipi_dsi_packet *packet)
 {
+	pr_info("%s", __func__);
 	const u8 *tx_buf = packet->payload;
 	int len = packet->payload_length, pld_data_bytes = sizeof(u32), ret;
 	__le32 word;
@@ -96,6 +97,7 @@ static int adp_dsi_write(struct adp_mipi_drv_private *adp,
 static int adp_dsi_read(struct adp_mipi_drv_private *adp,
 			const struct mipi_dsi_msg *msg)
 {
+	pr_info("%s", __func__);
 	int i, j, ret, len = msg->rx_len;
 	u8 *buf = msg->rx_buf;
 	u32 val;
@@ -130,6 +132,7 @@ static int adp_dsi_read(struct adp_mipi_drv_private *adp,
 static ssize_t adp_dsi_host_transfer(struct mipi_dsi_host *host,
 				     const struct mipi_dsi_msg *msg)
 {
+	pr_info("%s", __func__);
 	struct adp_mipi_drv_private *adp = mipi_to_adp(host);
 	struct mipi_dsi_packet packet;
 	int ret, nb_bytes;
@@ -158,6 +161,7 @@ static ssize_t adp_dsi_host_transfer(struct mipi_dsi_host *host,
 
 static int adp_dsi_bind(struct device *dev, struct device *master, void *data)
 {
+	pr_info("%s", __func__);
 	return 0;
 }
 
@@ -177,13 +181,16 @@ static int adp_dsi_host_attach(struct mipi_dsi_host *host,
 	struct drm_bridge *next;
 	int ret;
 
+	pr_info("%s: going to attach dsi", __func__);
 	next = devm_drm_of_get_bridge(adp->dsi.dev, adp->dsi.dev->of_node, 1, 0);
 	if (IS_ERR(next))
 		return PTR_ERR(next);
 
 	adp->next_bridge = next;
+	pr_info("%s: got bridge", __func__);
 
 	drm_bridge_add(&adp->bridge);
+	pr_info("%s: added bridge", __func__);
 
 	ret = component_add(host->dev, &adp_dsi_component_ops);
 	if (ret) {
@@ -191,6 +198,7 @@ static int adp_dsi_host_attach(struct mipi_dsi_host *host,
 		drm_bridge_remove(&adp->bridge);
 		return ret;
 	}
+	pr_info("%s: dsi attached", __func__);
 
 	return 0;
 }
@@ -239,6 +247,8 @@ static int adp_mipi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to map mipi mmio");
 		return PTR_ERR(adp->mipi);
 	}
+
+	pr_info("%s: adp mipi mmio mapped", __func__);
 
 	adp->dsi.dev = &pdev->dev;
 	adp->dsi.ops = &adp_dsi_host_ops;

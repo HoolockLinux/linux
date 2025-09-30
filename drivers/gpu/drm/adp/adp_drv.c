@@ -395,6 +395,7 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 	int ret;
 	u32 size;
 
+	pr_info("%s: before drmm_mode_config_init", __func__);
 	ret = drmm_mode_config_init(drm);
 	if (ret)
 		return ret;
@@ -418,12 +419,14 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 	drm->mode_config.preferred_depth = 24;
 	drm->mode_config.prefer_shadow = 0;
 	drm->mode_config.funcs = &adp_mode_config_funcs;
+	pr_info("%s: got mode config %ldx%ld", __func__, FIELD_GET(ADP_SCREEN_HSIZE, size), FIELD_GET(ADP_SCREEN_VSIZE, size));
 
 	ret = adp_setup_crtc(adp);
 	if (ret) {
 		drm_err(drm, "failed to create crtc");
 		return ret;
 	}
+	pr_info("%s: inited crtc", __func__);
 
 	adp->encoder = drmm_plain_encoder_alloc(drm, NULL, DRM_MODE_ENCODER_DSI, NULL);
 	if (IS_ERR(adp->encoder)) {
@@ -431,6 +434,7 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 		return PTR_ERR(adp->encoder);
 	}
 	adp->encoder->possible_crtcs = ALL_CRTCS;
+	pr_info("%s: inited encoder", __func__);
 
 	ret = drm_bridge_attach(adp->encoder, adp->next_bridge, NULL,
 				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
@@ -438,6 +442,7 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 		drm_err(drm, "failed to init bridge chain");
 		return ret;
 	}
+	pr_info("%s: inited bridge chain", __func__);
 
 	adp->connector = drm_bridge_connector_init(drm, adp->encoder);
 	if (IS_ERR(adp->connector))
@@ -450,6 +455,7 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 		drm_err(drm, "failed to initialize vblank");
 		return ret;
 	}
+	pr_info("%s: inited vblank", __func__);
 
 	drm_mode_config_reset(drm);
 
@@ -516,7 +522,10 @@ static int adp_drm_bind(struct device *dev)
 	struct adp_drv_private *adp = to_adp(drm);
 	int err;
 
+	pr_info("%s: before ADP_CTRL_FIFO_ON", __func__);
+
 	writel(ADP_CTRL_FIFO_ON, adp->fe + ADP_CTRL);
+	pr_info("%s: after ADP_CTRL_FIFO_ON", __func__);
 
 	adp->next_bridge = drmm_of_get_bridge(&adp->drm, dev->of_node, 0, 0);
 	if (IS_ERR(adp->next_bridge)) {
@@ -527,6 +536,8 @@ static int adp_drm_bind(struct device *dev)
 	err = adp_setup_mode_config(adp);
 	if (err < 0)
 		return err;
+	pr_info("%s: setup mode config", __func__);
+
 
 	err = request_irq(adp->fe_irq, adp_fe_irq, 0, "adp-fe", adp);
 	if (err)
@@ -566,6 +577,8 @@ static int adp_probe(struct platform_device *pdev)
 	struct adp_drv_private *adp;
 	int err;
 
+	pr_info("%s: before alloc", __func__);
+
 	adp = devm_drm_dev_alloc(&pdev->dev, &adp_driver, struct adp_drv_private, drm);
 	if (IS_ERR(adp))
 		return PTR_ERR(adp);
@@ -576,12 +589,15 @@ static int adp_probe(struct platform_device *pdev)
 	if (err < 0)
 		return err;
 
+	pr_info("%s: of parsed", __func__);
+
 	port = of_graph_get_remote_node(pdev->dev.of_node, 0, 0);
 	if (!port)
 		return -ENODEV;
 
 	drm_of_component_match_add(&pdev->dev, &match, compare_dev, port);
 	of_node_put(port);
+	pr_info("%s: after of put", __func__);
 
 	return component_master_add_with_match(&pdev->dev, &adp_master_ops, match);
 }
