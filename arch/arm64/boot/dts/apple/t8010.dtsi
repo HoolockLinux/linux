@@ -250,7 +250,7 @@
 				phy-names = "usb2-phy";
 				power-domains = <&ps_usbotg>;
 				resets = <&ps_usbotg>;
-				//dr_mode = "peripheral";
+				dr_mode = "peripheral";
 			};
 #if 0
 			ehci0: usb-ehci@20c200000 {
