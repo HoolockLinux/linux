@@ -73,3 +73,41 @@
 &serial0 {
 	status = "okay";
 };
+
+&i2c0 {
+	status = "okay";
+
+	pmic@3c {
+		compatible = "dlg,da2207", "dlg,i2c-da2xxx";
+		reg = <0x3c>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		rtc@5c0 {
+			compatible = "dlg,da2207-rtc", "dlg,da2045-rtc";
+			reg = <0x5c0 0x10>;
+			nvmem-cells = <&rtc_offset>;
+			nvmem-cell-names = "rtc_offset";
+		};
+
+		backlight@600 {
+			compatible = "dlg,da2207-bl", "dlg,da2089-bl";
+			reg = <0x600 0x2>;
+		};
+
+		nvmem@4000 {
+			compatible = "dlg,da2xxx-nvmem";
+			reg = <0x4000 0x28>;
+
+			nvmem-layout {
+				compatible = "fixed-layout";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				rtc_offset: rtc-offset@4 {
+					reg = <0x4 0x4>;
+				};
+			};
+		};
+	};
+};
