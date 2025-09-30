@@ -18,6 +18,8 @@ properties:
     items:
       - enum:
           - apple,t6000-smc
+          - apple,t8012-smc
+          - apple,t8015-smc
           - apple,t8103-smc
           - apple,t8112-smc
       - const: apple,smc
@@ -35,11 +37,21 @@ properties:
   mboxes:
     maxItems: 1
 
+  power-domains:
+    maxItems: 1
+    description: SMC CPU power domain
+
   gpio:
     $ref: /schemas/gpio/apple,smc-gpio.yaml
 
   reboot:
     $ref: /schemas/power/reset/apple,smc-reboot.yaml
+
+  rtc:
+    $ref: /schemas/rtc/apple,smc-rtc.yaml
+
+  hwmon:
+    $ref: /schemas/hwmon/apple,smc-hwmon.yaml
 
 additionalProperties: false
 
@@ -74,6 +86,54 @@ examples:
                         <&boot_error_count>, <&panic_count>;
           nvmem-cell-names = "shutdown_flag", "boot_stage",
                              "boot_error_count", "panic_count";
+        };
+
+        rtc {
+          compatible = "apple,smc-rtc";
+          nvmem-cells = <&rtc_offset>;
+          nvmem-cell-names = "rtc_offset";
+       };
+
+        hwmon {
+          compatible = "apple,smc-hwmon";
+          current {
+            current-ID0R {
+              apple,key-id = "ID0R";
+              label = "AC Input Current";
+            };
+          };
+
+          fan {
+            fan-F0Ac {
+              apple,key-id = "F0Ac";
+              apple,fan-minimum = "F0Mn";
+              apple,fan-maximum = "F0Mx";
+              apple,fan-target = "F0Tg";
+              apple,fan-mode = "F0Md";
+              label = "Fan 1";
+            };
+          };
+
+          power {
+            power-PSTR {
+              apple,key-id = "PSTR";
+              label = "Total System Power";
+            };
+          };
+
+          temperature {
+            temperature-TW0P {
+              apple,key-id = "TW0P";
+              label = "WiFi/BT Module Temperature";
+            };
+          };
+
+          voltage {
+            voltage-VD0R {
+              apple,key-id = "VD0R";
+              label = "AC Input Voltage";
+            };
+          };
         };
       };
     };
