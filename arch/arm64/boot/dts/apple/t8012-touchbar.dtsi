@@ -18,3 +18,46 @@
 		};
 	};
 };
+
+/*
+ * The driver depends on boot loader initialized state which resets when this
+ * power-domain is powered off. This happens on suspend or when the driver is
+ * missing during boot. Mark the domain as always on until the driver can
+ * handle this.
+ */
+&ps_disp0_be {
+	apple,always-on;
+};
+
+&disp0 {
+	status = "okay";
+};
+
+&mipi_out {
+	mipi_out_panel: endpoint@0 {
+		reg = <0>;
+		remote-endpoint = <&panel_in>;
+	};
+};
+
+&disp0_mipi {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel: panel@0 {
+		compatible = "apple,summit";
+		reg = <0>;
+		max-brightness = <255>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mipi_out_panel>;
+			};
+		};
+	};
+};
+
+&disp0_dart {
+	status = "okay";
+};

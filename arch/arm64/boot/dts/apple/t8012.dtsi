@@ -143,11 +143,72 @@
 		#size-cells = <2>;
 		nonposted-mmio;
 		ranges;
+		/* Required to get >32-bit DMA via DARTs */
+		dma-ranges = <0 0 0 0 0xffffffff 0xffffc000>;
 
 		cpufreq: performance-controller@202f20000 {
 			compatible = "apple,t8010-cluster-cpufreq", "apple,t8103-cluster-cpufreq", "apple,cluster-cpufreq";
 			reg = <0x2 0x02f20000 0 0x1000>;
 			#performance-domain-cells = <0>;
+		};
+
+		disp0: display-pipe@206200000 {
+			compatible = "apple,t8012-display-pipe", "apple,h7-display-pipe";
+			reg = <0x2 0x20620000 0x0 0xc000>,
+			      <0x2 0x20640000 0x0 0x4000>;
+			reg-names = "be", "fe";
+			power-domains = <&ps_disp0_fe>, <&ps_disp0_be>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 210 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 214 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "be", "fe";
+			iommus = <&disp0_dart 0>;
+			status = "disabled";
+
+			port {
+				adp_out_mipi: endpoint {
+					remote-endpoint = <&mipi_in_adp>;
+				};
+			};
+		};
+
+		disp0_dart: iommu@206304000 {
+			compatible = "apple,t8010-dart", "apple,s5l8960x-dart";
+			reg = <0x2 0x06304000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 212 IRQ_TYPE_LEVEL_HIGH>;
+			#iommu-cells = <1>;
+			power-domains = <&ps_disp0_fe>;
+			status = "disabled";
+		};
+
+		disp0_mipi: dsi@206600000 {
+			compatible = "apple,t8012-display-pipe-mipi", "apple,h7-display-pipe-mipi";
+			reg = <0x2 0x06600000 0x0 0x100000>;
+			power-domains = <&ps_mipi_dsi>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				mipi_in: port@0 {
+					reg = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					mipi_in_adp: endpoint@0 {
+						reg = <0>;
+						remote-endpoint = <&adp_out_mipi>;
+					};
+				};
+
+				mipi_out: port@1 {
+					reg = <1>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+				};
+			};
 		};
 
 		/* THESE I2C NODES DOES NOT WORK PROPERLY */
