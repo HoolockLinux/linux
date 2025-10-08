@@ -420,6 +420,15 @@
 			interrupts = <AIC_IRQ 168 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		smc: smc@212000100 {
+			compatible = "apple,t8012-smc", "apple,t8103-smc";
+			reg = <0x2 0x12000100 0x0 0x100>,
+				<0x2 0x12e00000 0x0 0x80000>;
+			reg-names = "smc", "sram";
+			mboxes = <&smc_mbox>;
+			power-domains = <&ps_smc_cpu>;
+		};
+
 		pinctrl_smc: pinctrl@212024000 {
 			compatible = "apple,t8010-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x12024000 0x0 0x1000>;
@@ -440,11 +449,19 @@
 				     <AIC_IRQ 199 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 200 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 201 IRQ_TYPE_LEVEL_HIGH>;
-			/*
-			 * SMC is not yet supported and accessing this pinctrl while SMC is
-			 * suspended results in a hang.
-			 */
-			status = "disabled";
+		};
+
+		smc_mbox: mbox@212808000 {
+			compatible = "apple,t8015-asc-mailbox";
+			reg = <0x2 0x12808000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 205 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 206 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 207 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 208 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+				#mbox-cells = <0>;
 		};
 	};
 
