@@ -11,6 +11,7 @@
 
 / {
 	aliases {
+		ausbphy0 = &ausbphy0;
 		serial0 = &serial0;
 	};
 
