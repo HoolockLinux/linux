@@ -1,0 +1,320 @@
+[
+    {
+        "PublicDescription": "Retired indirect branch instructions including indirect calls",
+        "EventCode": "0x93",
+        "EventName": "INST_BRANCH_INDIR",
+        "BriefDescription": "Retired indirect branch instructions including indirect calls"
+    },
+    {
+        "PublicDescription": "Retired indirect branch instructions including calls and returns that mispredicted",
+        "EventCode": "0xc6",
+        "EventName": "BRANCH_INDIR_MISPRED_NONSPEC",
+        "BriefDescription": "Retired indirect branch instructions including calls and returns that mispredicted"
+    },
+    {
+        "PublicDescription": "Mapped Advanced SIMD and FP Unit \u03bcops",
+        "EventCode": "0x7e",
+        "EventName": "MAP_SIMD_UOP",
+        "BriefDescription": "Mapped Advanced SIMD and FP Unit \u03bcops"
+    },
+    {
+        "PublicDescription": "Retired branch instructions including calls and returns",
+        "EventCode": "0x8d",
+        "EventName": "INST_BRANCH",
+        "BriefDescription": "Retired branch instructions including calls and returns"
+    },
+    {
+        "PublicDescription": "Retired subroutine return instructions",
+        "EventCode": "0x8f",
+        "EventName": "INST_BRANCH_RET",
+        "BriefDescription": "Retired subroutine return instructions"
+    },
+    {
+        "PublicDescription": "Retired core store \u03bcops that triggered memory order violations with core load \u03bcops",
+        "EventCode": "0xc4",
+        "EventName": "ST_MEMORY_ORDER_VIOLATION_NONSPEC",
+        "BriefDescription": "Retired core store \u03bcops that triggered memory order violations with core load \u03bcops"
+    },
+    {
+        "PublicDescription": "Mapped Load and Store Unit \u03bcops, including GPR to vector register converts; includes all instructions sent to the SME engine because they are processed through the Store Unit",
+        "EventCode": "0x7d",
+        "EventName": "MAP_LDST_UOP",
+        "BriefDescription": "Mapped Load and Store Unit \u03bcops"
+    },
+    {
+        "PublicDescription": "\u03bcops that flowed through the Load Unit",
+        "EventCode": "0xa6",
+        "EventName": "LD_UNIT_UOP",
+        "BriefDescription": "\u03bcops that flowed through the Load Unit"
+    },
+    {
+        "PublicDescription": "Retired branch instructions including calls and returns that mispredicted",
+        "EventCode": "0xcb",
+        "EventName": "BRANCH_MISPRED_NONSPEC",
+        "BriefDescription": "Retired branch instructions including calls and returns that mispredicted"
+    },
+    {
+        "PublicDescription": "Retired barrier instructions",
+        "EventCode": "0x9c",
+        "EventName": "INST_BARRIER",
+        "BriefDescription": "Retired barrier instructions"
+    },
+    {
+        "PublicDescription": "Retired return instructions that mispredicted",
+        "EventCode": "0xc8",
+        "EventName": "BRANCH_RET_INDIR_MISPRED_NONSPEC",
+        "BriefDescription": "Retired return instructions that mispredicted"
+    },
+    {
+        "PublicDescription": "Cycles while rewinding the Map Unit due to flush and restart",
+        "EventCode": "0x75",
+        "EventName": "MAP_REWIND",
+        "BriefDescription": "Cycles while rewinding the Map Unit due to flush and restart"
+    },
+    {
+        "PublicDescription": "Cycles while the Map Unit was stalled for any reason",
+        "EventCode": "0x76",
+        "EventName": "MAP_STALL",
+        "BriefDescription": "Cycles while the Map Unit was stalled for any reason"
+    },
+    {
+        "PublicDescription": "Retired load Advanced SIMD and FP Unit instructions",
+        "EventCode": "0x98",
+        "EventName": "INST_SIMD_LD",
+        "BriefDescription": "Retired load Advanced SIMD and FP Unit instructions"
+    },
+    {
+        "PublicDescription": "Retired indirect call instructions mispredicted",
+        "EventCode": "0xca",
+        "EventName": "BRANCH_CALL_INDIR_MISPRED_NONSPEC",
+        "BriefDescription": "Retired indirect call instructions mispredicted"
+    },
+    {
+        "PublicDescription": "Stores that missed the L1 Data Cache",
+        "EventCode": "0xa2",
+        "EventName": "L1D_CACHE_MISS_ST",
+        "BriefDescription": "Stores that missed the L1 Data Cache"
+    },
+    {
+        "PublicDescription": "Retired A32 instructions",
+        "EventCode": "0x8a",
+        "EventName": "INST_A32",
+        "BriefDescription": "Retired A32 instructions"
+    },
+    {
+        "PublicDescription": "Retired T32 instructions",
+        "EventCode": "0x8b",
+        "EventName": "INST_T32",
+        "BriefDescription": "Retired T32 instructions"
+    },
+    {
+        "PublicDescription": "All retired instructions",
+        "EventCode": "0x8c",
+        "EventName": "INST_ALL",
+        "BriefDescription": "All retired instructions"
+    },
+    {
+        "PublicDescription": "Store \u03bcops that executed with non-temporal hint; includes SSVE/SME loads because they utilize the Store Unit",
+        "EventCode": "0xe5",
+        "EventName": "ST_NT_UOP",
+        "BriefDescription": "Store \u03bcops that executed with non-temporal hint; includes SSVE/SME loads because they utilize the Store Unit"
+    },
+    {
+        "PublicDescription": "Pipeline flush and restarts that were not due to branch mispredictions or memory order violations",
+        "EventCode": "0x84",
+        "EventName": "FLUSH_RESTART_OTHER_NONSPEC",
+        "BriefDescription": "Pipeline flush and restarts that were not due to branch mispredictions or memory order violations"
+    },
+    {
+        "PublicDescription": "Cycles while the core was active",
+        "EventCode": "0x2",
+        "EventName": "CORE_ACTIVE_CYCLE",
+        "BriefDescription": "Cycles while the core was active"
+    },
+    {
+        "PublicDescription": "Retired non-branch and non-load/store Integer Unit instructions",
+        "EventCode": "0x97",
+        "EventName": "INST_INT_ALU",
+        "BriefDescription": "Retired non-branch and non-load/store Integer Unit instructions"
+    },
+    {
+        "PublicDescription": "Atomic or exclusive instruction successfully completed *For exclusives, incorrectly undercounts for exclusives when the cache line is initially found in shared state, however counts correctly for atomics",
+        "EventCode": "0xb3",
+        "EventName": "ATOMIC_OR_EXCLUSIVE_SUCC",
+        "BriefDescription": "Atomic or exclusive instruction successfully completed *For exclusives"
+    },
+    {
+        "PublicDescription": "Retired load and store instructions; does not count DC ZVA (Data Cache Zero by VA).",
+        "EventCode": "0x9b",
+        "EventName": "INST_LDST",
+        "BriefDescription": "Retired load and store instructions; does not count DC ZVA"
+    },
+    {
+        "PublicDescription": "Load and store \u03bcops that crossed a 64B boundary",
+        "EventCode": "0xb1",
+        "EventName": "LDST_X64_UOP",
+        "BriefDescription": "Load and store \u03bcops that crossed a 64B boundary"
+    },
+    {
+        "PublicDescription": "Cycles while the Map Unit was not stalled and Decode Unit did not send any \u03bcops",
+        "EventCode": "0xd6",
+        "EventName": "MAP_DISPATCH_BUBBLE",
+        "BriefDescription": "Cycles while the Map Unit was not stalled and Decode Unit did not send any \u03bcops"
+    },
+    {
+        "PublicDescription": "Retired non-load/store Advanced SIMD and FP Unit instructions",
+        "EventCode": "0x9a",
+        "EventName": "INST_SIMD_ALU",
+        "BriefDescription": "Retired non-load/store Advanced SIMD and FP Unit instructions"
+    },
+    {
+        "PublicDescription": "Retired taken branch instructions",
+        "EventCode": "0x90",
+        "EventName": "INST_BRANCH_TAKEN",
+        "BriefDescription": "Retired taken branch instructions"
+    },
+    {
+        "PublicDescription": "Retired store Integer Unit instructions; does not count DC ZVA (Data Cache Zero by VA).",
+        "EventCode": "0x96",
+        "EventName": "INST_INT_ST",
+        "BriefDescription": "Retired store Integer Unit instructions; does not count DC ZVA"
+    },
+    {
+        "PublicDescription": "Demand instruction fetches that missed in the L1 Instruction TLB",
+        "EventCode": "0xd4",
+        "EventName": "L1I_TLB_MISS_DEMAND",
+        "BriefDescription": "Demand instruction fetches that missed in the L1 Instruction TLB"
+    },
+    {
+        "PublicDescription": "Retired loads and stores that missed in the L1 Data TLB",
+        "EventCode": "0xc1",
+        "EventName": "L1D_TLB_MISS_NONSPEC",
+        "BriefDescription": "Retired loads and stores that missed in the L1 Data TLB"
+    },
+    {
+        "PublicDescription": "Mapped Integer Unit \u03bcops",
+        "EventCode": "0x7c",
+        "EventName": "MAP_INT_UOP",
+        "BriefDescription": "Mapped Integer Unit \u03bcops"
+    },
+    {
+        "PublicDescription": "Retired conditional branch instructions B.cond *On M3 and prior, only counts only instructions. On M4 CBZCBNZTBZTBNZ and following, adds / / / instructions to form the complete set of conditional branch instructions",
+        "EventCode": "0x94",
+        "EventName": "INST_BRANCH_COND",
+        "BriefDescription": "Retired conditional branch instructions B"
+    },
+    {
+        "PublicDescription": "Retired load Integer Unit instructions",
+        "EventCode": "0x95",
+        "EventName": "INST_INT_LD",
+        "BriefDescription": "Retired load Integer Unit instructions"
+    },
+    {
+        "PublicDescription": "Load and store accesses that missed the L1 Data TLB",
+        "EventCode": "0xa1",
+        "EventName": "L1D_TLB_MISS",
+        "BriefDescription": "Load and store accesses that missed the L1 Data TLB"
+    },
+    {
+        "PublicDescription": "\u03bcops that flowed through the Store Unit",
+        "EventCode": "0xa7",
+        "EventName": "ST_UNIT_UOP",
+        "BriefDescription": "\u03bcops that flowed through the Store Unit"
+    },
+    {
+        "PublicDescription": "All retired \u03bcops",
+        "EventCode": "0x1",
+        "EventName": "RETIRE_UOP",
+        "BriefDescription": "All retired \u03bcops"
+    },
+    {
+        "PublicDescription": "Retired loads that missed in the L1 Data Cache",
+        "EventCode": "0xbf",
+        "EventName": "L1D_CACHE_MISS_LD_NONSPEC",
+        "BriefDescription": "Retired loads that missed in the L1 Data Cache"
+    },
+    {
+        "PublicDescription": "Demand instruction fetches that missed in the L1 Instruction Cache",
+        "EventCode": "0xdb",
+        "EventName": "L1I_CACHE_MISS_DEMAND",
+        "BriefDescription": "Demand instruction fetches that missed in the L1 Instruction Cache"
+    },
+    {
+        "PublicDescription": "\u03bcops issued by the scheduler to any execution unit",
+        "EventCode": "0x52",
+        "EventName": "SCHEDULE_UOP",
+        "BriefDescription": "\u03bcops issued by the scheduler to any execution unit"
+    },
+    {
+        "PublicDescription": "Dirty cache lines written back from the L1D Cache toward the Shared L2 Cache",
+        "EventCode": "0xa8",
+        "EventName": "L1D_CACHE_WRITEBACK",
+        "BriefDescription": "Dirty cache lines written back from the L1D Cache toward the Shared L2 Cache"
+    },
+    {
+        "PublicDescription": "Fetch Unit internal restarts for any reason. Does not include branch mispredicts",
+        "EventCode": "0xde",
+        "EventName": "FETCH_RESTART",
+        "BriefDescription": "Fetch Unit internal restarts for any reason"
+    },
+    {
+        "PublicDescription": "Retired subroutine call instructions",
+        "EventCode": "0x8e",
+        "EventName": "INST_BRANCH_CALL",
+        "BriefDescription": "Retired subroutine call instructions"
+    },
+    {
+        "PublicDescription": "Atomic or exclusive instruction failed due to contention *For exclusives, incorrectly undercounts for exclusives when the cache line is initially found in shared state, however counts correctly for atomics",
+        "EventCode": "0xb4",
+        "EventName": "ATOMIC_OR_EXCLUSIVE_FAIL",
+        "BriefDescription": "Atomic or exclusive instruction failed due to contention *For exclusives"
+    },
+    {
+        "PublicDescription": "Retired conditional branch instructions that mispredicted",
+        "EventCode": "0xc5",
+        "EventName": "BRANCH_COND_MISPRED_NONSPEC",
+        "BriefDescription": "Retired conditional branch instructions that mispredicted"
+    },
+    {
+        "PublicDescription": "Loads and stores that missed in the L2 TLB",
+        "EventCode": "0xb",
+        "EventName": "L2_TLB_MISS_DATA",
+        "BriefDescription": "Loads and stores that missed in the L2 TLB"
+    },
+    {
+        "PublicDescription": "Loads that missed the L1 Data Cache",
+        "EventCode": "0xa3",
+        "EventName": "L1D_CACHE_MISS_LD",
+        "BriefDescription": "Loads that missed the L1 Data Cache"
+    },
+    {
+        "PublicDescription": "Instruction fetches that missed in the L2 TLB",
+        "EventCode": "0xa",
+        "EventName": "L2_TLB_MISS_INSTRUCTION",
+        "BriefDescription": "Instruction fetches that missed in the L2 TLB"
+    },
+    {
+        "PublicDescription": "Load and store accesses to the L1 Data TLB",
+        "EventCode": "0xa0",
+        "EventName": "L1D_TLB_ACCESS",
+        "BriefDescription": "Load and store accesses to the L1 Data TLB"
+    },
+    {
+        "PublicDescription": "Load \u03bcops that executed with non-temporal hint; excludes SSVE/SME loads because they utilize the Store Unit",
+        "EventCode": "0xe6",
+        "EventName": "LD_NT_UOP",
+        "BriefDescription": "Load \u03bcops that executed with non-temporal hint; excludes SSVE/SME loads because they utilize the Store Unit"
+    },
+    {
+        "PublicDescription": "Retired stores that missed in the L1 Data Cache",
+        "EventCode": "0xc0",
+        "EventName": "L1D_CACHE_MISS_ST_NONSPEC",
+        "BriefDescription": "Retired stores that missed in the L1 Data Cache"
+    },
+    {
+        "PublicDescription": "Retired store Advanced SIMD and FP Unit instructions",
+        "EventCode": "0x99",
+        "EventName": "INST_SIMD_ST",
+        "BriefDescription": "Retired store Advanced SIMD and FP Unit instructions"
+    }
+]
