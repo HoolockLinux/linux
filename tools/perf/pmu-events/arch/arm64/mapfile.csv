@@ -48,3 +48,5 @@
 0x00000000c00fac40,v1,ampere/ampereonex,core
 0x000000004e0f0100,v1,nvidia/t410,core
 0x00000000610f0010,v1,apple/a7,core
+0x00000000610f0020,v1,apple/a8,core
+0x00000000610f0030,v1,apple/a8,core
