@@ -71,7 +71,7 @@ enum {
 #define APPLE_RTKIT_OSLOG_SIZE GENMASK_ULL(55, 36)
 #define APPLE_RTKIT_OSLOG_IOVA GENMASK_ULL(35, 0)
 
-#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 11
+#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 10
 #define APPLE_RTKIT_MAX_SUPPORTED_VERSION 12
 
 struct apple_rtkit_rx_work {
@@ -122,6 +122,12 @@ static void apple_rtkit_management_rx_hello(struct apple_rtkit *rtk, u64 msg)
 	u16 max_ver = FIELD_GET(APPLE_RTKIT_MGMT_HELLO_MAXVER, msg);
 	u16 want_ver = min(APPLE_RTKIT_MAX_SUPPORTED_VERSION, max_ver);
 
+	/* min_ver is minor instead of minimum if major version is 10 */
+	if (max_ver == 10) {
+		rtk->minor_ver = min_ver;
+		min_ver = max_ver;
+	}
+
 	dev_dbg(rtk->dev, "RTKit: Min ver %d, max ver %d\n", min_ver, max_ver);
 
 	if (min_ver > APPLE_RTKIT_MAX_SUPPORTED_VERSION) {
@@ -140,10 +146,20 @@ static void apple_rtkit_management_rx_hello(struct apple_rtkit *rtk, u64 msg)
 	dev_info(rtk->dev, "RTKit: Initializing (protocol version %d.%d)\n",
 		 rtk->major_ver, rtk->minor_ver);
 
-	rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V11;
+	if (rtk->major_ver == 10 && rtk->minor_ver < 2)
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V10_0;
+	else if (rtk->major_ver == 10)
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V10_2;
+	else if (rtk->major_ver > 10)
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V11;
 
-	reply = FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MINVER, want_ver);
+	if (rtk->major_ver > 10)
+		reply = FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MINVER, want_ver);
+	else
+		reply = FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MINVER, rtk->minor_ver);
+
 	reply |= FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MAXVER, want_ver);
+
 	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_HELLO_REPLY, reply);
 
 	return;
@@ -171,14 +187,16 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 	}
 
 	reply = FIELD_PREP(APPLE_RTKIT_MGMT_EPMAP_BASE, base);
-	if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
-		reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
-	else
-		reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	if (rtk->major_ver > 10) {
+		if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
+			reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
+		else
+			reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	}
 
 	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_EPMAP_REPLY, reply);
 
-	if (!(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
+	if (rtk->major_ver > 10 && !(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
 		return;
 
 	for_each_set_bit(ep, rtk->endpoints, rtk->app_ep_start) {
@@ -797,9 +815,24 @@ static int apple_rtkit_set_ap_power_state(struct apple_rtkit *rtk,
 	if (ret)
 		return ret;
 
+	/*
+	 * protocol version 10.0 does not ack AP going into state 0x20
+	 * side effect such as syslog enablement is still honored.
+	 */
+	if (rtk->major_ver == 10 && rtk->minor_ver < 2
+	    && state == APPLE_RTKIT_PWR_STATE_ON) {
+		rtk->ap_power_state = APPLE_RTKIT_PWR_STATE_ON;
+		return 0;
+	}
+
 	ret = apple_rtkit_wait_for_completion(&rtk->ap_pwr_ack_completion);
 	if (ret)
 		return ret;
+
+	if (rtk->major_ver == 10 && rtk->minor_ver < 2
+	    && state == APPLE_RTKIT_PWR_STATE_QUIESCED
+	    && rtk->ap_power_state == APPLE_RTKIT_PWR_STATE_OFF)
+		rtk->ap_power_state = APPLE_RTKIT_PWR_STATE_QUIESCED;
 
 	if (rtk->ap_power_state != state)
 		return -EINVAL;
