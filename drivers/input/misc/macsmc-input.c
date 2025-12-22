@@ -9,6 +9,7 @@
 
 #include <linux/device.h>
 #include <linux/input.h>
+#include <linux/mfd/core.h>
 #include <linux/mfd/macsmc.h>
 #include <linux/module.h>
 #include <linux/reboot.h>
