@@ -19,6 +19,7 @@
 #include <linux/workqueue.h>
 #include "mailbox.h"
 
+#define APPLE_RTKIT_APP_ENDPOINT_START_V10 0x6
 #define APPLE_RTKIT_APP_ENDPOINT_START_V11 0x20
 #define APPLE_RTKIT_MAX_ENDPOINTS 0x100
 
