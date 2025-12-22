@@ -179,4 +179,14 @@ int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
  */
 int apple_rtkit_poll(struct apple_rtkit *rtk);
 
+/*
+ * Get RTKit protocol version.
+ *
+ * @rtk:            RTKit reference
+ * @major_ver:      Pointer to store the major version
+ * @minor_ver:      Optional, pointer to store the minor version
+ */
+void apple_rtkit_protocol_version(struct apple_rtkit *rtk, u16 *major_ver,
+				  u16 *minor_ver);
+
 #endif /* _LINUX_APPLE_RTKIT_H_ */
