@@ -21,7 +21,7 @@
 #include <linux/soc/apple/rtkit.h>
 #include <linux/unaligned.h>
 
-#define SMC_ENDPOINT			0x20
+#define SMC_APP_ENDPOINT		0
 
 /* We don't actually know the true size here but this seem reasonable */
 #define SMC_SHMEM_SIZE			0x1000
@@ -76,7 +76,7 @@ static int apple_smc_cmd_locked(struct apple_smc *smc, u64 cmd, u64 arg,
 	       FIELD_PREP(SMC_ID, smc->msg_id) |
 	       FIELD_PREP(SMC_DATA, arg));
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT, msg, NULL, false);
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep, msg, NULL, false);
 	if (ret) {
 		dev_err(smc->dev, "Failed to send command\n");
 		return ret;
@@ -266,7 +266,7 @@ int apple_smc_write_atomic(struct apple_smc *smc, smc_key key, const void *buf, 
 	       FIELD_PREP(SMC_DATA, key));
 	smc->atomic_pending = true;
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT, msg, NULL, true);
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep, msg, NULL, true);
 	if (ret < 0) {
 		dev_err(smc->dev, "Failed to send command (%d)\n", ret);
 		return ret;
@@ -334,7 +334,7 @@ static bool apple_smc_rtkit_recv_early(void *cookie, u8 endpoint, u64 message)
 {
 	struct apple_smc *smc = cookie;
 
-	if (endpoint != SMC_ENDPOINT) {
+	if (endpoint != smc->ep) {
 		dev_warn(smc->dev, "Received message for unknown endpoint 0x%x\n", endpoint);
 		return false;
 	}
@@ -370,7 +370,7 @@ static void apple_smc_rtkit_recv(void *cookie, u8 endpoint, u64 message)
 {
 	struct apple_smc *smc = cookie;
 
-	if (endpoint != SMC_ENDPOINT) {
+	if (endpoint != smc->ep) {
 		dev_warn(smc->dev, "Received message for unknown endpoint 0x%x\n", endpoint);
 		return;
 	}
@@ -432,18 +432,22 @@ static int apple_smc_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to wake up SMC");
 
+	smc->ep = apple_rtkit_app_ep_to_ep(smc->rtk, SMC_APP_ENDPOINT);
+	if (!smc->ep)
+		return dev_err_probe(dev, ret, "Failed to get SMC endpoint");
+
 	ret = devm_add_action_or_reset(dev, apple_smc_rtkit_shutdown, smc);
 	if (ret)
 		return ret;
 
-	ret = apple_rtkit_start_ep(smc->rtk, SMC_ENDPOINT);
+	ret = apple_rtkit_start_ep(smc->rtk, smc->ep);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to start SMC endpoint");
 
 	init_completion(&smc->init_done);
 	init_completion(&smc->cmd_done);
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT,
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep,
 				       FIELD_PREP(SMC_MSG, SMC_MSG_INITIALIZE), NULL, false);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to send init message");
