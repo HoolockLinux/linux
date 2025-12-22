@@ -71,7 +71,7 @@ enum {
 #define APPLE_RTKIT_OSLOG_SIZE GENMASK_ULL(55, 36)
 #define APPLE_RTKIT_OSLOG_IOVA GENMASK_ULL(35, 0)
 
-#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 11
+#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 10
 #define APPLE_RTKIT_MAX_SUPPORTED_VERSION 12
 
 struct apple_rtkit_rx_work {
@@ -140,7 +140,10 @@ static void apple_rtkit_management_rx_hello(struct apple_rtkit *rtk, u64 msg)
 		 want_ver);
 	rtk->version = want_ver;
 
-	rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V11;
+	if (rtk->version < 11)
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V10;
+	else
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V11;
 
 	reply = FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MINVER, want_ver);
 	reply |= FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MAXVER, want_ver);
@@ -171,14 +174,16 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 	}
 
 	reply = FIELD_PREP(APPLE_RTKIT_MGMT_EPMAP_BASE, base);
-	if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
-		reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
-	else
-		reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	if (rtk->version > 10) {
+		if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
+			reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
+		else
+			reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	}
 
 	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_EPMAP_REPLY, reply);
 
-	if (!(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
+	if (rtk->version > 10 && !(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
 		return;
 
 	for_each_set_bit(ep, rtk->endpoints, rtk->app_ep_start) {
