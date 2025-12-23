@@ -1132,4 +1132,11 @@ config FUEL_GAUGE_MM8013
 	  the state of charge, temperature, cycle count, actual and design
 	  capacity, etc.
 
+config CHARGER_MACSMC
+	tristate "Apple SMC Charger / Battery support"
+	depends on MFD_MACSMC
+	help
+	  Say Y here to enable support for the charger and battery controls on
+	  Apple SMC controllers, as used on Apple Silicon Macs.
+
 endif # POWER_SUPPLY
