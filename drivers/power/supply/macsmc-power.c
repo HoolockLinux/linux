@@ -39,8 +39,10 @@ struct macsmc_power {
 	char model_name[MAX_STRING_LENGTH];
 	char serial_number[MAX_STRING_LENGTH];
 	char mfg_date[MAX_STRING_LENGTH];
+	bool has_bmdn;
 	bool has_chwa;
 	bool has_chls;
+	u32 b0ap_type;
 	u8 num_cells;
 	int nominal_voltage_mv;
 
@@ -430,8 +432,18 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 		val->intval = vs16 * 1000;
 		break;
 	case POWER_SUPPLY_PROP_POWER_NOW:
-		ret = apple_smc_read_s32(power->smc, SMC_KEY(B0AP), &vs32);
-		val->intval = vs32 * 1000;
+		switch (power->b0ap_type) {
+			case __SMC_KEY('s', 'i', '1', '6'):
+				ret = apple_smc_read_s16(power->smc, SMC_KEY(B0AP), &vs16);
+				val->intval = vs16 * 1000;
+				break;
+			case __SMC_KEY('s', 'i', '3', '2'):
+				ret = apple_smc_read_s32(power->smc, SMC_KEY(B0AP), &vs32);
+				val->intval = vs32 * 1000;
+				break;
+			default:
+				return -EINVAL;
+		}
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		ret = apple_smc_read_u16(power->smc, SMC_KEY(BITV), &vu16);
@@ -614,38 +626,38 @@ static const enum power_supply_property macsmc_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
-	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
-	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_POWER_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
-	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
 	POWER_SUPPLY_PROP_ENERGY_FULL,
 	POWER_SUPPLY_PROP_ENERGY_NOW,
+	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_SCOPE,
+	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_MANUFACTURE_YEAR,
 	POWER_SUPPLY_PROP_MANUFACTURE_MONTH,
 	POWER_SUPPLY_PROP_MANUFACTURE_DAY,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
+	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD,
-	POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_END_THRESHOLD,
 };
 
 static const struct power_supply_desc macsmc_battery_desc = {
@@ -837,6 +849,7 @@ static int macsmc_power_probe(struct platform_device *pdev)
 	struct apple_smc *smc = dev_get_drvdata(pdev->dev.parent);
 	struct power_supply_config psy_cfg = {};
 	struct macsmc_power *power;
+	struct apple_smc_key_info info;
 	bool flag;
 	u32 val;
 	u16 vu16;
@@ -856,6 +869,28 @@ static int macsmc_power_probe(struct platform_device *pdev)
 	if (macsmc_battery_get_status(power) <= POWER_SUPPLY_STATUS_UNKNOWN)
 		return -ENODEV;
 
+	if (apple_smc_read_u16(smc, SMC_KEY(BITV), &vu16) < 0)
+		/* Remove all properties not supported on Apple A11 */
+		power->batt_desc.num_properties -= 11;
+
+	/*
+	 * Appearently Apple A11 on iOS 16 has CHWA? In any case this cannot
+	 * be handled by reducing num_properties.
+	 */
+
+	/* B0TE added in iOS 15.0 */
+	if (apple_smc_read_u16(smc, SMC_KEY(B0TE), &vu16) < 0)
+		power->batt_desc.num_properties -= 1;
+
+	/* B0AP changed from si16 to si32 in iOS 15.0 */
+	ret = apple_smc_get_key_info(smc, SMC_KEY(B0AP), &info);
+	if (!ret)
+		power->b0ap_type = info.type_code;
+
+	/* BVVN and BBAD added in iOS 14.0 */
+	if (apple_smc_read_flag(smc, SMC_KEY(BBAD), &flag) < 0)
+		power->batt_desc.num_properties -= 2;
+
 	/* Fetch string properties */
 	apple_smc_read(smc, SMC_KEY(BMDN), power->model_name, sizeof(power->model_name) - 1);
 	apple_smc_read(smc, SMC_KEY(BMSN), power->serial_number, sizeof(power->serial_number) - 1);
@@ -873,7 +908,7 @@ static int macsmc_power_probe(struct platform_device *pdev)
 		power->has_chwa = true;
 	} else if (apple_smc_read_u16(power->smc, SMC_KEY(CHLS), &vu16) >= 0) {
 		power->has_chls = true;
-	} else {
+	} else if (power->has_bmdn) {
 		/* Remove the last 2 properties that control the charge threshold */
 		power->batt_desc.num_properties -= 2;
 	}
@@ -896,6 +931,10 @@ static int macsmc_power_probe(struct platform_device *pdev)
 	 * with lower case last letter) without obvious replacement. */
 	if (apple_smc_read_u16(power->smc, SMC_KEY(AC-n), &vu16) < 0)
 		power->ac_desc.num_properties -= 2;
+
+	/* Apple A11 does not support AC-i and AC-n anyways */
+	if (apple_smc_read_u32(power->smc, SMC_KEY(ACPW), &val) <= 0)
+		power->ac_desc.num_properties = 1;
 
 	power->ac = devm_power_supply_register(&pdev->dev, &power->ac_desc, &psy_cfg);
 	if (IS_ERR(power->ac)) {
