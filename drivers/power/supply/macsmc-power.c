@@ -57,6 +57,8 @@
 #define ACSt_CAN_BOOT_AP	BIT(2)
 #define ACSt_CAN_BOOT_IBOOT	BIT(1)
 
+#define BMDT_SUPPORTED_LEN	6
+
 #define CHWA_CHLS_FIXED_START_OFFSET	5
 #define CHLS_MIN_END_THRESHOLD		10
 #define CHLS_FORCE_DISCHARGE		0x100
@@ -81,11 +83,14 @@ struct macsmc_power {
 	char mfg_date[MAX_STRING_LENGTH];
 
 	/* Supported feature flags based on SMC key presence */
+	bool has_bmdn; /* Battery Model Name */
 	bool has_chwa; /* Charge limit (Modern firmware) */
 	bool has_chls; /* Charge limit (Older firmware) */
 	bool has_ch0i; /* Force discharge (Older firmware) */
 	bool has_ch0c; /* Inhibit charge (Older firmware) */
 	bool has_chte; /* Inhibit charge (Modern firmware) */
+
+	u32 b0ap_type; /* SMC key type for power now (si16 or si32) */
 
 	u8 num_cells;
 	int nominal_voltage_mv;
@@ -353,8 +358,18 @@ static int macsmc_battery_get_property(struct power_supply *psy,
 		val->intval = vs16 * 1000;
 		break;
 	case POWER_SUPPLY_PROP_POWER_NOW:
-		ret = apple_smc_read_s32(power->smc, SMC_KEY(B0AP), &vs32);
-		val->intval = vs32 * 1000;
+		switch (power->b0ap_type) {
+			case __SMC_KEY('s', 'i', '1', '6'):
+				ret = apple_smc_read_s16(power->smc, SMC_KEY(B0AP), &vs16);
+				val->intval = vs16 * 1000;
+				break;
+			case __SMC_KEY('s', 'i', '3', '2'):
+				ret = apple_smc_read_s32(power->smc, SMC_KEY(B0AP), &vs32);
+				val->intval = vs32 * 1000;
+				break;
+			default:
+				return -EINVAL;
+		}
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		ret = apple_smc_read_u16(power->smc, SMC_KEY(BITV), &vu16);
@@ -617,6 +632,7 @@ static int macsmc_power_probe(struct platform_device *pdev)
 	struct apple_smc *smc = dev_get_drvdata(pdev->dev.parent);
 	struct power_supply_config psy_cfg = {};
 	struct macsmc_power *power;
+	struct apple_smc_key_info info;
 	bool has_battery = false;
 	bool has_ac_adapter = false;
 	int ret = -ENODEV;
@@ -680,24 +696,12 @@ static int macsmc_power_probe(struct platform_device *pdev)
 		props[nprops++] = POWER_SUPPLY_PROP_CAPACITY_LEVEL;
 		props[nprops++] = POWER_SUPPLY_PROP_TEMP;
 		props[nprops++] = POWER_SUPPLY_PROP_CYCLE_COUNT;
-		props[nprops++] = POWER_SUPPLY_PROP_HEALTH;
 		props[nprops++] = POWER_SUPPLY_PROP_SCOPE;
-		props[nprops++] = POWER_SUPPLY_PROP_MODEL_NAME;
 		props[nprops++] = POWER_SUPPLY_PROP_SERIAL_NUMBER;
-		props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_YEAR;
-		props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_MONTH;
-		props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_DAY;
 
 		/* Extended properties usually present */
-		props[nprops++] = POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW;
-		props[nprops++] = POWER_SUPPLY_PROP_TIME_TO_FULL_NOW;
-		props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN;
-		props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN;
 		props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MIN;
 		props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MAX;
-		props[nprops++] = POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT;
-		props[nprops++] = POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX;
-		props[nprops++] = POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE;
 		props[nprops++] = POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN;
 		props[nprops++] = POWER_SUPPLY_PROP_CHARGE_FULL;
 		props[nprops++] = POWER_SUPPLY_PROP_CHARGE_NOW;
@@ -707,12 +711,35 @@ static int macsmc_power_probe(struct platform_device *pdev)
 		props[nprops++] = POWER_SUPPLY_PROP_CHARGE_COUNTER;
 
 		/* Detect features based on key availability */
+		if (apple_smc_key_exists(smc, SMC_KEY(B0TE))) /* A11 iOS 15.0+ */
+			props[nprops++] = POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW;
+		if (apple_smc_key_exists(smc, SMC_KEY(B0TF))) /* Unavailable on A11 */
+			props[nprops++] = POWER_SUPPLY_PROP_TIME_TO_FULL_NOW;
+		if (apple_smc_key_exists(smc, SMC_KEY(B0RC))) /* Unavailable on A11 */
+			props[nprops++] = POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT;
+		if (apple_smc_key_exists(smc, SMC_KEY(B0RI))) /* Unavailable on A11 */
+			props[nprops++] = POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX;
+		if (apple_smc_key_exists(smc, SMC_KEY(B0RV))) /* Unavailable on A11 */
+			props[nprops++] = POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE;
+		if (apple_smc_key_exists(smc, SMC_KEY(BBAD))) /* A11 iOS 14.0+ */
+			props[nprops++] = POWER_SUPPLY_PROP_HEALTH;
+		if (apple_smc_key_exists(smc, SMC_KEY(BITV))) /* Unavailable on A11 */
+			props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN;
+		if (apple_smc_key_exists(smc, SMC_KEY(BVVN))) /* A11 iOS 14.0+ */
+			props[nprops++] = POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN;
+		if (apple_smc_key_exists(smc, SMC_KEY(BMDN))) /* Unavailable on A11 */
+			power->has_bmdn = true;
 		if (apple_smc_key_exists(smc, SMC_KEY(CHTE)))
 			power->has_chte = true;
 		if (apple_smc_key_exists(smc, SMC_KEY(CH0C)))
 			power->has_ch0c = true;
 		if (apple_smc_key_exists(smc, SMC_KEY(CH0I)))
 			power->has_ch0i = true;
+
+		/* B0AP changed from si16 to si32 in iOS 15.0 so detect it here */
+		ret = apple_smc_get_key_info(smc, SMC_KEY(B0AP), &info);
+		if (!ret)
+			power->b0ap_type = info.type_code;
 
 		/* Reset "Optimised Battery Charging" flags to default state */
 		if (power->has_chte)
@@ -755,12 +782,24 @@ static int macsmc_power_probe(struct platform_device *pdev)
 		power->batt_desc.num_properties = nprops;
 
 		/* Fetch identity strings */
-		apple_smc_read(smc, SMC_KEY(BMDN), power->model_name,
-			       sizeof(power->model_name) - 1);
+		if (power->has_bmdn) {
+			apple_smc_read(smc, SMC_KEY(BMDN), power->model_name,
+				       sizeof(power->model_name) - 1);
+
+			props[nprops++] = POWER_SUPPLY_PROP_MODEL_NAME;
+		}
+		/* BMDT is 4 byte in Apple A11 and is of an unknown format */
+		ret = apple_smc_get_key_info(smc, SMC_KEY(BMDT), &info);
+		if (!ret && info.size == BMDT_SUPPORTED_LEN) {
+			apple_smc_read(smc, SMC_KEY(BMDT), power->mfg_date,
+				       sizeof(power->mfg_date) - 1);
+
+			props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_YEAR;
+			props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_MONTH;
+			props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_DAY;
+		}
 		apple_smc_read(smc, SMC_KEY(BMSN), power->serial_number,
 			       sizeof(power->serial_number) - 1);
-		apple_smc_read(smc, SMC_KEY(BMDT), power->mfg_date,
-			       sizeof(power->mfg_date) - 1);
 
 		apple_smc_read_u8(power->smc, SMC_KEY(BNCB), &power->num_cells);
 		power->nominal_voltage_mv = MACSMC_NOMINAL_CELL_VOLTAGE_MV * power->num_cells;
