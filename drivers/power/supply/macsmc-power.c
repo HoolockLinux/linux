@@ -850,6 +850,17 @@ static int macsmc_power_probe(struct platform_device *pdev)
 			props[nprops++] = POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT;
 		}
 
+		/*
+		 * On T8015, AC requires manual configuration. There is a D2*
+		 * version of keys with the seemingly same effect.
+		 */
+		if (apple_smc_key_exists(power->smc, SMC_KEY(D1NO))) {
+			apple_smc_write_u32(power->smc, SMC_KEY(D1AR), 1000); /* Current in mA */
+			apple_smc_write_u32(power->smc, SMC_KEY(D1VR), 5000); /* Voltage in mV */
+			apple_smc_write_u32(power->smc, SMC_KEY(D1IR), 1000); /* Current in mA */
+			apple_smc_write_u8(power->smc, SMC_KEY(D1NO), 1); /* Apply settings */
+		}
+
 		if (nprops > MACSMC_MAX_AC_PROPS)
 			return -ENOMEM;
 
