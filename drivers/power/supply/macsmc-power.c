@@ -609,7 +609,9 @@ static int macsmc_power_event(struct notifier_block *nb, unsigned long event, vo
 	 * 0x71... indicates power/battery events.
 	 */
 	if ((event & 0xffffff00) == 0x71010100 || /* Charger status change */
+	    (event & 0xffffff00) == 0x71010200 || /* Wireless charger status change */
 	    (event & 0xffff0000) == 0x71060000 || /* Port charge state change */
+	    (event & 0xffff0000) == 0x71070000 || /* Charging coil state change */
 	    (event & 0xffff0000) == 0x71130000) { /* Connector insert/remove event */
 		if (power->batt)
 			power_supply_changed(power->batt);
