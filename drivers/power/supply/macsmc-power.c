@@ -800,8 +800,16 @@ static int macsmc_power_probe(struct platform_device *pdev)
 			props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_MONTH;
 			props[nprops++] = POWER_SUPPLY_PROP_MANUFACTURE_DAY;
 		}
-		apple_smc_read(smc, SMC_KEY(BMSN), power->serial_number,
-			       sizeof(power->serial_number) - 1);
+
+		/*
+		 * On Apple A11, iOS 16 reading more than 0x80 bytes from SMC
+		 * SRAM causes SError so check the key size first.
+		 */
+		ret = apple_smc_get_key_info(smc, SMC_KEY(BMSN), &info);
+		if (!ret) {
+			apple_smc_read(smc, SMC_KEY(BMSN), power->serial_number,
+				       min(info.size, sizeof(power->serial_number) - 1));
+		}
 
 		apple_smc_read_u8(power->smc, SMC_KEY(BNCB), &power->num_cells);
 		power->nominal_voltage_mv = MACSMC_NOMINAL_CELL_VOLTAGE_MV * power->num_cells;
