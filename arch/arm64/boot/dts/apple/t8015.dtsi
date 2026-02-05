@@ -497,6 +497,10 @@
 			reg-names = "smc", "sram";
 			mboxes = <&smc_mbox>;
 			power-domains = <&ps_smc_cpu>;
+
+			smc_hwmon: hwmon {
+				compatible = "apple,smc-hwmon";
+			};
 		};
 
 		pinctrl_smc: pinctrl@236024000 {
