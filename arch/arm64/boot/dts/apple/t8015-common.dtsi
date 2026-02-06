@@ -12,6 +12,8 @@
 / {
 	aliases {
 		serial0 = &serial0;
+		/* Used by loader to fill properties*/
+		smc = &smc;
 	};
 
 	chosen {
