@@ -449,6 +449,28 @@
 						#address-cells = <1>;
 						#size-cells = <1>;
 
+						boot_stage: boot-stage@1 {
+							reg = <0x1 0x1>;
+						};
+
+						boot_error_count: boot-error-count@2,0 {
+							reg = <0x2 0x1>;
+							bits = <0 4>;
+						};
+
+						panic_count: panic-count@2,4 {
+							reg = <0x2 0x1>;
+							bits = <4 4>;
+						};
+
+						boot_error_stage: boot-error-stage@3 {
+							reg = <0x3 0x1>;
+						};
+
+						shutdown_flag: shutdown-flag@f {
+							reg = <0xf 0x1>;
+						};
+
 						rtc_offset: rtc-offset@4 {
 							reg = <0x4 0x4>;
 						};
@@ -500,6 +522,15 @@
 
 			smc_hwmon: hwmon {
 				compatible = "apple,smc-hwmon";
+			};
+
+			smc_reboot: reboot {
+				compatible = "apple,t8015-smc-reboot";
+				nvmem-cells = <&shutdown_flag>, <&boot_stage>,
+					<&boot_error_count>, <&panic_count>;
+				nvmem-cell-names = "shutdown_flag", "boot_stage",
+					"boot_error_count", "panic_count";
+				/* To be filled by loader */
 			};
 		};
 
