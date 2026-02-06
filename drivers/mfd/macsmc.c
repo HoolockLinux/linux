@@ -44,7 +44,19 @@
 
 #define SMC_TIMEOUT_MS		500
 
-static const struct mfd_cell apple_smc_devs[] = {
+#define SMC_TYPE_T8012		0x8012
+#define SMC_TYPE_T8015		0x8015
+#define SMC_TYPE_T8103		0x8103
+
+static const struct mfd_cell apple_smc_t8015_devs[] = {
+	MFD_CELL_NAME("macsmc-input"),
+	MFD_CELL_NAME("macsmc-power"),
+	MFD_CELL_OF("macsmc-gpio", NULL, NULL, 0, 0, "apple,smc-gpio"),
+	MFD_CELL_OF("macsmc-hwmon", NULL, NULL, 0, 0, "apple,smc-hwmon"),
+	MFD_CELL_OF("macsmc-reboot", NULL, NULL, 0, 0, "apple,t8015-smc-reboot"),
+};
+
+static const struct mfd_cell apple_smc_t8103_devs[] = {
 	MFD_CELL_NAME("macsmc-input"),
 	MFD_CELL_NAME("macsmc-power"),
 	MFD_CELL_OF("macsmc-gpio", NULL, NULL, 0, 0, "apple,smc-gpio"),
@@ -410,8 +422,30 @@ static int apple_smc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct apple_smc *smc;
-	u32 count;
+	u32 count, dev_cnt;
+	const struct mfd_cell *devs;
 	int ret;
+	uintptr_t type;
+
+	type = (uintptr_t)of_device_get_match_data(dev);
+	switch (type) {
+		/*
+		 * T8012 has differences in button and RTC handling
+		 * Currently it works with T8015.
+		 */
+		case SMC_TYPE_T8012:
+		case SMC_TYPE_T8015:
+			devs = apple_smc_t8015_devs;
+			dev_cnt = ARRAY_SIZE(apple_smc_t8015_devs);
+			break;
+		case SMC_TYPE_T8103:
+			devs = apple_smc_t8103_devs;
+			dev_cnt = ARRAY_SIZE(apple_smc_t8103_devs);
+			break;
+		default:
+			WARN_ON(1);
+			return -ENODEV;
+	}
 
 	smc = devm_kzalloc(dev, sizeof(*smc), GFP_KERNEL);
 	if (!smc)
@@ -476,8 +510,7 @@ static int apple_smc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = devm_mfd_add_devices(smc->dev, PLATFORM_DEVID_NONE,
-				   apple_smc_devs, ARRAY_SIZE(apple_smc_devs),
+	ret = devm_mfd_add_devices(smc->dev, PLATFORM_DEVID_NONE, devs, dev_cnt,
 				   NULL, 0, NULL);
 	if (ret)
 		return dev_err_probe(smc->dev, ret, "Failed to register sub-devices");
@@ -487,8 +520,10 @@ static int apple_smc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id apple_smc_of_match[] = {
-	{ .compatible = "apple,t8103-smc" },
-	{ .compatible = "apple,smc" },
+	{ .compatible = "apple,t8012-smc", .data = (void*)SMC_TYPE_T8012 },
+	{ .compatible = "apple,t8015-smc", .data = (void*)SMC_TYPE_T8015 },
+	{ .compatible = "apple,t8103-smc", .data = (void*)SMC_TYPE_T8103 },
+	{ .compatible = "apple,smc", .data = (void*)SMC_TYPE_T8103 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, apple_smc_of_match);
