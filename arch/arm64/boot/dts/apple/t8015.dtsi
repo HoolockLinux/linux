@@ -588,6 +588,12 @@
 			mboxes = <&smc_mbox>;
 			power-domains = <&ps_smc_cpu>;
 
+			smc_gpio: gpio {
+				compatible = "apple,smc-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
 			smc_hwmon: hwmon {
 				compatible = "apple,smc-hwmon";
 			};
