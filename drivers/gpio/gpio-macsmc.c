@@ -231,6 +231,35 @@ static int macsmc_gpio_init_valid_mask(struct gpio_chip *gc,
 	return 0;
 }
 
+static int macsmc_gpio_dir(struct gpio_chip *gc, unsigned int offset, int dir)
+{
+	struct macsmc_gpio *smcgp = gpiochip_get_data(gc);
+	smc_key key = macsmc_gpio_key(offset);
+	int ret;
+
+	ret = apple_smc_write_u32(smcgp->smc, key, CMD_PINMODE | dir);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int macsmc_gpio_dir_in(struct gpio_chip *gc, unsigned int offset)
+{
+	return macsmc_gpio_dir(gc, offset, 0);
+}
+
+static int macsmc_gpio_dir_out(struct gpio_chip *gc, unsigned int offset, int val)
+{
+	int ret;
+
+	ret = macsmc_gpio_dir(gc, offset, 1);
+	if (ret)
+		return ret;
+
+	return macsmc_gpio_set(gc, offset, val);
+}
+
 static int macsmc_gpio_probe(struct platform_device *pdev)
 {
 	struct macsmc_gpio *smcgp;
@@ -267,6 +296,10 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 	smcgp->gc.set = macsmc_gpio_set;
 	smcgp->gc.get_direction = macsmc_gpio_get_direction;
 	smcgp->gc.init_valid_mask = macsmc_gpio_init_valid_mask;
+
+	smcgp->gc.direction_input = macsmc_gpio_dir_in;
+	smcgp->gc.direction_output = macsmc_gpio_dir_out;
+
 	smcgp->gc.can_sleep = true;
 	smcgp->gc.ngpio = MAX_GPIO;
 	smcgp->gc.base = -1;
