@@ -576,11 +576,13 @@ static int apple_spi_transfer_one(struct spi_controller *ctlr, struct spi_device
 		//if (tx_ptr)
 		//	xfer_flags |= APPLE_S5L_SPI_STATUS_TXCOMPLETE;
 		if (rx_ptr) {
-		//	xfer_flags |= APPLE_SPI_STATUS_RXCOMPLETE;
+			if (poll)
+				xfer_flags |= APPLE_SPI_STATUS_RXCOMPLETE;
 			reg_mask(spi, APPLE_SPI_CFG, APPLE_S5L_SPI_CFG_AUTO_TX, APPLE_S5L_SPI_CFG_AUTO_TX);
 		}
 
-		xfer_flags = APPLE_SPI_STATUS_TXRXTHRESH;
+		if (tx_ptr || !poll)
+			xfer_flags = APPLE_SPI_STATUS_TXRXTHRESH;
 
 		dev_info(&ctlr->dev, "setting xfer_flags 0x%x tx: %d rx: %d", xfer_flags, !!tx_ptr, !!rx_ptr);
 	} else {
