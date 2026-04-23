@@ -14,6 +14,10 @@
 #include <linux/reboot.h>
 #include <linux/slab.h>
 
+/* Power-off Simulation with battery indicator (PRC) */
+#define SHUTDOWN_FLAG_PWR_OFF_SIM_BATT_INDICATOR_ON	0x10
+#define SHUTDOWN_FLAG_PWR_OFF_SIM_BATT_INDICATOR_OFF	0x90
+
 struct macsmc_reboot_nvmem {
 	struct nvmem_cell *shutdown_flag;
 	struct nvmem_cell *boot_stage;
@@ -38,6 +42,8 @@ struct macsmc_reboot {
 	struct device *dev;
 	struct apple_smc *smc;
 	struct notifier_block reboot_notify;
+	bool has_phra;
+	u8 sim_shutdown_flag;
 
 	union {
 		struct macsmc_reboot_nvmem nvm;
@@ -97,11 +103,18 @@ static int macsmc_prepare_atomic(struct sys_off_data *data)
 static int macsmc_power_off(struct sys_off_data *data)
 {
 	struct macsmc_reboot *reboot = data->cb_data;
+	u32 poweroff_key;
 
-	dev_info(reboot->dev, "Issuing power off (off1)\n");
+	if (reboot->has_phra)
+		poweroff_key = SMC_KEY(off1);
+	else
+		poweroff_key = SMC_KEY(off0);
 
-	if (apple_smc_write_u32_atomic(reboot->smc, SMC_KEY(MBSE), SMC_KEY(off1)) < 0) {
-		dev_err(reboot->dev, "Failed to issue MBSE = off1 (power_off)\n");
+
+	dev_info(reboot->dev, "Issuing power off (%p4ch)\n", &poweroff_key);
+
+	if (apple_smc_write_u32_atomic(reboot->smc, SMC_KEY(MBSE), poweroff_key) < 0) {
+		dev_err(reboot->dev, "Failed to issue MBSE = %p4ch (power_off)\n", &poweroff_key);
 	} else {
 		mdelay(100);
 		WARN_ONCE(1, "Unable to power off system\n");
@@ -130,7 +143,8 @@ static int macsmc_reboot_notify(struct notifier_block *this, unsigned long actio
 {
 	struct macsmc_reboot *reboot = container_of(this, struct macsmc_reboot, reboot_notify);
 	u8 shutdown_flag;
-	u32 val;
+	u32 val, vbus;
+	int ret;
 
 	switch (action) {
 	case SYS_RESTART:
@@ -139,7 +153,20 @@ static int macsmc_reboot_notify(struct notifier_block *this, unsigned long actio
 		break;
 	case SYS_POWER_OFF:
 		val = SMC_KEY(offw);
-		shutdown_flag = 1;
+		if (reboot->has_phra) {
+			shutdown_flag = 1;
+		} else {
+			ret = apple_smc_read_u32(reboot->smc, SMC_KEY(VBUS), &vbus);
+			if (ret) {
+				dev_err(reboot->dev, "Failed to read VBUS state: %d\n", ret);
+				vbus = 0;
+			}
+			/* Continue because we are shutting down */
+			if (vbus)
+				shutdown_flag = reboot->sim_shutdown_flag;
+			else
+				shutdown_flag = 0;
+		}
 		break;
 	default:
 		return NOTIFY_DONE;
@@ -205,12 +232,22 @@ static int macsmc_reboot_probe(struct platform_device *pdev)
 	struct macsmc_reboot *reboot;
 	int ret, i;
 
+	if (!pdev->dev.of_node)
+		return -ENODEV;
+
 	reboot = devm_kzalloc(&pdev->dev, sizeof(*reboot), GFP_KERNEL);
 	if (!reboot)
 		return -ENOMEM;
 
 	reboot->dev = &pdev->dev;
 	reboot->smc = smc;
+
+	reboot->has_phra = (bool)of_device_get_match_data(&pdev->dev);
+
+	if (of_property_read_bool(pdev->dev.of_node, "prc-poweroff"))
+		reboot->sim_shutdown_flag = SHUTDOWN_FLAG_PWR_OFF_SIM_BATT_INDICATOR_ON;
+	else
+		reboot->sim_shutdown_flag = SHUTDOWN_FLAG_PWR_OFF_SIM_BATT_INDICATOR_OFF;
 
 	platform_set_drvdata(pdev, reboot);
 
@@ -256,10 +293,13 @@ static int macsmc_reboot_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret,
 				     "Failed to register restart prepare handler\n");
-	ret = devm_register_sys_off_handler(&pdev->dev, SYS_OFF_MODE_RESTART, SYS_OFF_PRIO_HIGH,
-					    macsmc_restart, reboot);
-	if (ret)
-		return dev_err_probe(&pdev->dev, ret, "Failed to register restart handler\n");
+
+	if (reboot->has_phra) {
+		ret = devm_register_sys_off_handler(&pdev->dev, SYS_OFF_MODE_RESTART,
+						    SYS_OFF_PRIO_HIGH, macsmc_restart, reboot);
+		if (ret)
+			return dev_err_probe(&pdev->dev, ret, "Failed to register restart handler\n");
+	}
 
 	ret = devm_register_reboot_notifier(&pdev->dev, &reboot->reboot_notify);
 	if (ret)
@@ -271,7 +311,8 @@ static int macsmc_reboot_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id macsmc_reboot_of_table[] = {
-	{ .compatible = "apple,smc-reboot", },
+	{ .compatible = "apple,smc-reboot", .data = (void*)true },
+	{ .compatible = "apple,t8015-smc-reboot", .data = (void*)false },
 	{}
 };
 MODULE_DEVICE_TABLE(of, macsmc_reboot_of_table);
