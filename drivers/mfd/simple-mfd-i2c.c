@@ -35,6 +35,11 @@ static const struct regmap_config regmap_config_8r_8v = {
 	.val_bits = 8,
 };
 
+static const struct regmap_config regmap_config_16r_8v = {
+	.reg_bits = 16,
+	.val_bits = 8,
+};
+
 static int simple_mfd_i2c_probe(struct i2c_client *i2c)
 {
 	const struct simple_mfd_data *simple_mfd_data;
@@ -67,6 +72,10 @@ static int simple_mfd_i2c_probe(struct i2c_client *i2c)
 
 	return ret;
 }
+
+static const struct simple_mfd_data apple_i2c_pmic = {
+	.regmap_config = &regmap_config_16r_8v
+};
 
 static const struct mfd_cell sy7636a_cells[] = {
 	{ .name = "sy7636a-regulator", },
@@ -116,6 +125,7 @@ static const struct simple_mfd_data spacemit_p1 = {
 };
 
 static const struct of_device_id simple_mfd_i2c_of_match[] = {
+	{ .compatible = "apple,i2c-pmic", .data = &apple_i2c_pmic },
 	{ .compatible = "delta,tn48m-cpld" },
 	{ .compatible = "fsl,ls1028aqds-fpga" },
 	{ .compatible = "fsl,lx2160aqds-fpga" },
