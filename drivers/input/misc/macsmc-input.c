@@ -21,6 +21,7 @@
  * @input: Allocated input_dev; devres managed
  * @nb: Notifier block used for incoming events from SMC (e.g. button pressed down)
  * @wakeup_mode: Set to true when system is suspended and power button events should wake it
+ * @force_shutdown: True if force reset should shutdown, false if system should restart
  */
 struct macsmc_input {
 	struct device *dev;
@@ -28,6 +29,7 @@ struct macsmc_input {
 	struct input_dev *input;
 	struct notifier_block nb;
 	bool wakeup_mode;
+	bool force_shutdown;
 };
 
 #define SMC_EV_BTN 0x7201
@@ -80,8 +82,9 @@ static void macsmc_input_event_button(struct macsmc_input *smcin, unsigned long 
 		 * flushed. macOS actually does this by panicing (!)...
 		 */
 		if (state) {
-			dev_crit(smcin->dev, "Triggering forced shutdown!\n");
-			if (kernel_can_power_off())
+			dev_crit(smcin->dev, "Triggering forced %s!\n",
+				 smcin->force_shutdown ? "shutdown" : "restart");
+			if (smcin->force_shutdown && kernel_can_power_off())
 				kernel_power_off();
 			else /* Missing macsmc-reboot driver? */
 				kernel_restart("SMC power button triggered restart");
@@ -153,6 +156,9 @@ static int macsmc_input_probe(struct platform_device *pdev)
 	smcin->input = devm_input_allocate_device(&pdev->dev);
 	if (!smcin->input)
 		return -ENOMEM;
+
+	if (!of_device_is_compatible(pdev->dev.parent->of_node, "apple,t8015-smc"))
+		smcin->force_shutdown = true;
 
 	smcin->input->phys = "macsmc-input (0)";
 	smcin->input->name = "Apple SMC power/lid events";
