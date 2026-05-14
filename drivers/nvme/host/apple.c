@@ -1008,9 +1008,23 @@ static void apple_nvme_init_queue(struct apple_nvme_queue *q)
 {
 	unsigned int depth = apple_nvme_queue_depth(q);
 	struct apple_nvme *anv = queue_to_apple_nvme(q);
+	size_t sq_size;
 
+	/*
+	 * Queues are reused across controller resets. Make sure the
+	 * firmware sees the same clean queue state it gets during probe.
+	 */
+	q->sq_tail = 0;
 	q->cq_head = 0;
 	q->cq_phase = 1;
+
+	if (q->is_adminq || anv->hw->has_lsq_nvmmu)
+		sq_size = depth * sizeof(struct nvme_command);
+	else
+		sq_size = depth << APPLE_NVME_IOSQES;
+
+	memset(q->sqes, 0, sq_size);
+
 	if (anv->hw->has_lsq_nvmmu)
 		memset(q->tcbs, 0, anv->hw->max_queue_depth
 			* sizeof(struct apple_nvmmu_tcb));
