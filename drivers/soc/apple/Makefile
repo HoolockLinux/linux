@@ -11,3 +11,5 @@ apple-sart-y = sart.o
 
 obj-$(CONFIG_APPLE_TUNABLE) += apple-tunable.o
 apple-tunable-y = tunable.o
+
+obj-$(CONFIG_APPLE_PMP_T8015) += pmp_t8015.o
