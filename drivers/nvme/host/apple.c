@@ -203,6 +203,8 @@ struct apple_nvme {
 
 	int irq;
 	spinlock_t lock;
+
+	unsigned long t8015_active_tags;
 };
 
 static_assert(sizeof(struct nvme_command) == 64);
@@ -290,6 +292,38 @@ static void apple_nvmmu_inval(struct apple_nvme_queue *q, unsigned int tag)
 				     "NVMMU TCB invalidation failed\n");
 }
 
+static bool apple_nvme_t8015_reserve_tag(struct apple_nvme *anv,
+					 struct nvme_command *cmd)
+{
+	u16 tag;
+
+	if (anv->hw->has_lsq_nvmmu)
+		return true;
+
+	tag = nvme_tag_from_cid(cmd->common.command_id);
+
+	if (WARN_ON_ONCE(tag >= BITS_PER_LONG))
+		return false;
+
+	return !test_and_set_bit(tag, &anv->t8015_active_tags);
+}
+
+static void apple_nvme_t8015_release_cid(struct apple_nvme *anv,
+					 __u16 command_id)
+{
+	u16 tag;
+
+	if (anv->hw->has_lsq_nvmmu)
+		return;
+
+	tag = nvme_tag_from_cid(command_id);
+
+	if (WARN_ON_ONCE(tag >= BITS_PER_LONG))
+		return;
+
+	clear_bit(tag, &anv->t8015_active_tags);
+}
+
 static void apple_nvme_submit_cmd_t8015(struct apple_nvme_queue *q,
 				  struct nvme_command *cmd)
 {
@@ -309,7 +343,6 @@ static void apple_nvme_submit_cmd_t8015(struct apple_nvme_queue *q,
 	writel(q->sq_tail, q->sq_db);
 	spin_unlock_irq(&anv->lock);
 }
-
 
 static void apple_nvme_submit_cmd_t8103(struct apple_nvme_queue *q,
 				  struct nvme_command *cmd)
@@ -652,9 +685,13 @@ static inline void apple_nvme_update_cq_head(struct apple_nvme_queue *q)
 static bool apple_nvme_poll_cq(struct apple_nvme_queue *q,
 			       struct io_comp_batch *iob)
 {
+	struct apple_nvme *anv = queue_to_apple_nvme(q);
 	bool found = false;
 
 	while (apple_nvme_cqe_pending(q)) {
+		struct nvme_completion *cqe = &q->cqes[q->cq_head];
+		__u16 command_id;
+
 		found = true;
 
 		/*
@@ -662,11 +699,20 @@ static bool apple_nvme_poll_cq(struct apple_nvme_queue *q,
 		 * the cqe requires a full read memory barrier
 		 */
 		dma_rmb();
+
+		command_id = READ_ONCE(cqe->command_id);
+
 		apple_nvme_handle_cqe(q, iob, q->cq_head);
 		apple_nvme_update_cq_head(q);
+
+		if (!anv->hw->has_lsq_nvmmu) {
+			writel(q->cq_head, q->cq_db);
+			readl(q->cq_db);
+			apple_nvme_t8015_release_cid(anv, command_id);
+		}
 	}
 
-	if (found)
+	if (found && anv->hw->has_lsq_nvmmu)
 		writel(q->cq_head, q->cq_db);
 
 	return found;
@@ -790,10 +836,15 @@ static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 	if (ret)
 		return ret;
 
+	if (!apple_nvme_t8015_reserve_tag(anv, cmnd)) {
+		ret = BLK_STS_RESOURCE;
+		goto out_free_cmd;
+	}
+
 	if (blk_rq_nr_phys_segments(req)) {
 		ret = apple_nvme_map_data(anv, req, cmnd);
 		if (ret)
-			goto out_free_cmd;
+			goto out_release_tag;
 	}
 
 	nvme_start_request(req);
@@ -805,6 +856,8 @@ static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 	return BLK_STS_OK;
 
+out_release_tag:
+	apple_nvme_t8015_release_cid(anv, cmnd->common.command_id);
 out_free_cmd:
 	nvme_cleanup_cmd(req);
 	return ret;
@@ -1164,6 +1217,9 @@ static void apple_nvme_reset_work(struct work_struct *work)
 	ret = nvme_enable_ctrl(&anv->ctrl);
 	if (ret)
 		goto out;
+
+	if (!anv->hw->has_lsq_nvmmu)
+		WRITE_ONCE(anv->t8015_active_tags, 0);
 
 	dev_dbg(anv->dev, "Starting admin queue");
 	apple_nvme_init_queue(&anv->adminq);
