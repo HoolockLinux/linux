@@ -21,7 +21,7 @@
 #include <linux/soc/apple/rtkit.h>
 #include <linux/unaligned.h>
 
-#define SMC_ENDPOINT			0x20
+#define SMC_APP_ENDPOINT		0
 
 /* We don't actually know the true size here but this seem reasonable */
 #define SMC_SHMEM_SIZE			0x1000
@@ -44,7 +44,19 @@
 
 #define SMC_TIMEOUT_MS		500
 
-static const struct mfd_cell apple_smc_devs[] = {
+#define SMC_TYPE_T8012		0x8012
+#define SMC_TYPE_T8015		0x8015
+#define SMC_TYPE_T8103		0x8103
+
+static const struct mfd_cell apple_smc_t8015_devs[] = {
+	MFD_CELL_NAME("macsmc-input"),
+	MFD_CELL_NAME("macsmc-power"),
+	MFD_CELL_OF("macsmc-gpio", NULL, NULL, 0, 0, "apple,smc-gpio"),
+	MFD_CELL_OF("macsmc-hwmon", NULL, NULL, 0, 0, "apple,smc-hwmon"),
+	MFD_CELL_OF("macsmc-reboot", NULL, NULL, 0, 0, "apple,t8015-smc-reboot"),
+};
+
+static const struct mfd_cell apple_smc_t8103_devs[] = {
 	MFD_CELL_NAME("macsmc-input"),
 	MFD_CELL_NAME("macsmc-power"),
 	MFD_CELL_OF("macsmc-gpio", NULL, NULL, 0, 0, "apple,smc-gpio"),
@@ -76,7 +88,7 @@ static int apple_smc_cmd_locked(struct apple_smc *smc, u64 cmd, u64 arg,
 	       FIELD_PREP(SMC_ID, smc->msg_id) |
 	       FIELD_PREP(SMC_DATA, arg));
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT, msg, NULL, false);
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep, msg, NULL, false);
 	if (ret) {
 		dev_err(smc->dev, "Failed to send command\n");
 		return ret;
@@ -266,7 +278,7 @@ int apple_smc_write_atomic(struct apple_smc *smc, smc_key key, const void *buf, 
 	       FIELD_PREP(SMC_DATA, key));
 	smc->atomic_pending = true;
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT, msg, NULL, true);
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep, msg, NULL, true);
 	if (ret < 0) {
 		dev_err(smc->dev, "Failed to send command (%d)\n", ret);
 		return ret;
@@ -334,7 +346,7 @@ static bool apple_smc_rtkit_recv_early(void *cookie, u8 endpoint, u64 message)
 {
 	struct apple_smc *smc = cookie;
 
-	if (endpoint != SMC_ENDPOINT) {
+	if (endpoint != smc->ep) {
 		dev_warn(smc->dev, "Received message for unknown endpoint 0x%x\n", endpoint);
 		return false;
 	}
@@ -370,7 +382,7 @@ static void apple_smc_rtkit_recv(void *cookie, u8 endpoint, u64 message)
 {
 	struct apple_smc *smc = cookie;
 
-	if (endpoint != SMC_ENDPOINT) {
+	if (endpoint != smc->ep) {
 		dev_warn(smc->dev, "Received message for unknown endpoint 0x%x\n", endpoint);
 		return;
 	}
@@ -410,8 +422,30 @@ static int apple_smc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct apple_smc *smc;
-	u32 count;
+	u32 count, dev_cnt;
+	const struct mfd_cell *devs;
 	int ret;
+	uintptr_t type;
+
+	type = (uintptr_t)of_device_get_match_data(dev);
+	switch (type) {
+		/*
+		 * T8012 has differences in button and RTC handling
+		 * Currently it works with T8015.
+		 */
+		case SMC_TYPE_T8012:
+		case SMC_TYPE_T8015:
+			devs = apple_smc_t8015_devs;
+			dev_cnt = ARRAY_SIZE(apple_smc_t8015_devs);
+			break;
+		case SMC_TYPE_T8103:
+			devs = apple_smc_t8103_devs;
+			dev_cnt = ARRAY_SIZE(apple_smc_t8103_devs);
+			break;
+		default:
+			WARN_ON(1);
+			return -ENODEV;
+	}
 
 	smc = devm_kzalloc(dev, sizeof(*smc), GFP_KERNEL);
 	if (!smc)
@@ -432,18 +466,22 @@ static int apple_smc_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to wake up SMC");
 
+	smc->ep = apple_rtkit_app_ep_to_ep(smc->rtk, SMC_APP_ENDPOINT);
+	if (!smc->ep)
+		return dev_err_probe(dev, ret, "Failed to get SMC endpoint");
+
 	ret = devm_add_action_or_reset(dev, apple_smc_rtkit_shutdown, smc);
 	if (ret)
 		return ret;
 
-	ret = apple_rtkit_start_ep(smc->rtk, SMC_ENDPOINT);
+	ret = apple_rtkit_start_ep(smc->rtk, smc->ep);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to start SMC endpoint");
 
 	init_completion(&smc->init_done);
 	init_completion(&smc->cmd_done);
 
-	ret = apple_rtkit_send_message(smc->rtk, SMC_ENDPOINT,
+	ret = apple_rtkit_send_message(smc->rtk, smc->ep,
 				       FIELD_PREP(SMC_MSG, SMC_MSG_INITIALIZE), NULL, false);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to send init message");
@@ -472,8 +510,7 @@ static int apple_smc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = devm_mfd_add_devices(smc->dev, PLATFORM_DEVID_NONE,
-				   apple_smc_devs, ARRAY_SIZE(apple_smc_devs),
+	ret = devm_mfd_add_devices(smc->dev, PLATFORM_DEVID_NONE, devs, dev_cnt,
 				   NULL, 0, NULL);
 	if (ret)
 		return dev_err_probe(smc->dev, ret, "Failed to register sub-devices");
@@ -483,8 +520,10 @@ static int apple_smc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id apple_smc_of_match[] = {
-	{ .compatible = "apple,t8103-smc" },
-	{ .compatible = "apple,smc" },
+	{ .compatible = "apple,t8012-smc", .data = (void*)SMC_TYPE_T8012 },
+	{ .compatible = "apple,t8015-smc", .data = (void*)SMC_TYPE_T8015 },
+	{ .compatible = "apple,t8103-smc", .data = (void*)SMC_TYPE_T8103 },
+	{ .compatible = "apple,smc", .data = (void*)SMC_TYPE_T8103 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, apple_smc_of_match);
