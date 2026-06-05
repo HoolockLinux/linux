@@ -149,6 +149,77 @@
 			#performance-domain-cells = <0>;
 		};
 
+		/* THESE I2C NODES DOES NOT WORK PROPERLY */
+		i2c0: i2c@20a200000 {
+			compatible = "apple,t8010-i2c", "apple,i2c";
+			reg = <0x2 0x0a200000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 294 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c0_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c0>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@20a204000 {
+			compatible = "apple,t8010-i2c", "apple,i2c";
+			reg = <0x2 0x0a204000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 295 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c1_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c1>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@20a208000 {
+			compatible = "apple,t8010-i2c", "apple,i2c";
+			reg = <0x2 0x0a208000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 296 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c2_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c2>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@20a20c000 {
+			compatible = "apple,t8010-i2c", "apple,i2c";
+			reg = <0x2 0x0a20c000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 297 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c3_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c3>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@20a210000 {
+			compatible = "apple,t8010-i2c", "apple,i2c";
+			reg = <0x2 0x0a210000 0x0 0x4000>;
+			clocks = <&clkref>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 298 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-0 = <&i2c4_pins>;
+			pinctrl-names = "default";
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+			power-domains = <&ps_i2c4>;
+			status = "disabled";
+		};
+
 		serial0: serial@20a600000 {
 			compatible = "apple,s5l-uart";
 			reg = <0x2 0x0a600000 0x0 0x4000>;
@@ -198,6 +269,31 @@
 				     <AIC_IRQ 49 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 50 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 51 IRQ_TYPE_LEVEL_HIGH>;
+
+			i2c0_pins: i2c0-pins {
+				pinmux = <APPLE_PINMUX(101, 1)>,
+					 <APPLE_PINMUX(100, 1)>;
+			};
+
+			i2c1_pins: i2c1-pins {
+				pinmux = <APPLE_PINMUX(93, 1)>,
+					 <APPLE_PINMUX(92, 1)>;
+			};
+
+			i2c2_pins: i2c2-pins {
+				pinmux = <APPLE_PINMUX(136, 1)>,
+					 <APPLE_PINMUX(135, 1)>;
+			};
+
+			i2c3_pins: i2c3-pins {
+				pinmux = <APPLE_PINMUX(97, 1)>,
+					 <APPLE_PINMUX(96, 1)>;
+			};
+
+			i2c4_pins: i2c4-pins {
+				pinmux = <APPLE_PINMUX(121, 1)>,
+					 <APPLE_PINMUX(120, 1)>;
+			};
 		};
 
 		pinctrl_aop: pinctrl@2100f0000 {
@@ -226,6 +322,35 @@
 			reg = <0x2 0x11180700 0x0 0x100>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+
+			pmic@f {
+				compatible = "apple,calpe-pmic", "apple,spmi-pmic";
+				reg = <0xf SPMI_USID>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				rtc@2603 {
+					compatible = "apple,calpe-pmic-rtc", "apple,antigua-pmic-rtc";
+					reg = <0x2603 0x10>;
+					nvmem-cells = <&rtc_offset>;
+					nvmem-cell-names = "rtc_offset";
+				};
+
+				nvmem@5000 {
+					compatible = "apple,pmic-nvmem";
+					reg = <0x5000 0x300>;
+
+					nvmem-layout {
+						compatible = "fixed-layout";
+						#address-cells = <1>;
+						#size-cells = <1>;
+
+						rtc_offset: rtc-offset@4 {
+							reg = <0x4 0x4>;
+						};
+					};
+				};
+			};
 		};
 
 		pinctrl_nub: pinctrl@2111f0000 {
