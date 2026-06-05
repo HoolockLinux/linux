@@ -1307,7 +1307,10 @@ static int apple_nvme_alloc_tagsets(struct apple_nvme *anv)
 
 	anv->admin_tagset.ops = &apple_nvme_mq_admin_ops;
 	anv->admin_tagset.nr_hw_queues = 1;
-	anv->admin_tagset.queue_depth = APPLE_NVME_AQ_MQ_TAG_DEPTH;
+	if (anv->hw->has_lsq_nvmmu)
+		anv->admin_tagset.queue_depth = APPLE_NVME_AQ_MQ_TAG_DEPTH;
+	else
+		anv->tagset.queue_depth = anv->hw->max_queue_depth - 1;
 	anv->admin_tagset.timeout = NVME_ADMIN_TIMEOUT;
 	anv->admin_tagset.numa_node = NUMA_NO_NODE;
 	anv->admin_tagset.cmd_size = sizeof(struct apple_nvme_iod);
