@@ -204,6 +204,14 @@ struct apple_nvme {
 	int irq;
 	spinlock_t lock;
 
+	/*
+	 * t8015's ANS seems to treat the command tag as global across
+	 * both the admin and I/O queues rather than per-queue. It's not
+	 * clear why; our best guess is the firmware keys some internal
+	 * state off the tag alone, so reusing one that's still live on
+	 * the other queue upsets it. Track the in-flight tags here and
+	 * hold off submitting until the tag is free.
+	 */
 	unsigned long t8015_active_tags;
 };
 
@@ -292,15 +300,10 @@ static void apple_nvmmu_inval(struct apple_nvme_queue *q, unsigned int tag)
 				     "NVMMU TCB invalidation failed\n");
 }
 
-static bool apple_nvme_t8015_reserve_tag(struct apple_nvme *anv,
+static bool apple_nvme_reserve_tag_t8015(struct apple_nvme *anv,
 					 struct nvme_command *cmd)
 {
-	u16 tag;
-
-	if (anv->hw->has_lsq_nvmmu)
-		return true;
-
-	tag = nvme_tag_from_cid(cmd->common.command_id);
+	u16 tag = nvme_tag_from_cid(cmd->common.command_id);
 
 	if (WARN_ON_ONCE(tag >= BITS_PER_LONG))
 		return false;
@@ -308,15 +311,10 @@ static bool apple_nvme_t8015_reserve_tag(struct apple_nvme *anv,
 	return !test_and_set_bit(tag, &anv->t8015_active_tags);
 }
 
-static void apple_nvme_t8015_release_cid(struct apple_nvme *anv,
+static void apple_nvme_release_cid_t8015(struct apple_nvme *anv,
 					 __u16 command_id)
 {
-	u16 tag;
-
-	if (anv->hw->has_lsq_nvmmu)
-		return;
-
-	tag = nvme_tag_from_cid(command_id);
+	u16 tag = nvme_tag_from_cid(command_id);
 
 	if (WARN_ON_ONCE(tag >= BITS_PER_LONG))
 		return;
@@ -686,6 +684,7 @@ static bool apple_nvme_poll_cq(struct apple_nvme_queue *q,
 			       struct io_comp_batch *iob)
 {
 	struct apple_nvme *anv = queue_to_apple_nvme(q);
+	unsigned long completed_tags = 0;
 	bool found = false;
 
 	while (apple_nvme_cqe_pending(q)) {
@@ -706,14 +705,22 @@ static bool apple_nvme_poll_cq(struct apple_nvme_queue *q,
 		apple_nvme_update_cq_head(q);
 
 		if (!anv->hw->has_lsq_nvmmu) {
-			writel(q->cq_head, q->cq_db);
-			readl(q->cq_db);
-			apple_nvme_t8015_release_cid(anv, command_id);
+			u16 tag = nvme_tag_from_cid(command_id);
+
+			if (!WARN_ON_ONCE(tag >= BITS_PER_LONG))
+				__set_bit(tag, &completed_tags);
 		}
 	}
 
-	if (found && anv->hw->has_lsq_nvmmu)
+	if (found)
 		writel(q->cq_head, q->cq_db);
+
+	if (!anv->hw->has_lsq_nvmmu && completed_tags) {
+		unsigned int tag;
+
+		for_each_set_bit(tag, &completed_tags, BITS_PER_LONG)
+			clear_bit(tag, &anv->t8015_active_tags);
+	}
 
 	return found;
 }
@@ -836,15 +843,20 @@ static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 	if (ret)
 		return ret;
 
-	if (!apple_nvme_t8015_reserve_tag(anv, cmnd)) {
+	if (!anv->hw->has_lsq_nvmmu &&
+	    !apple_nvme_reserve_tag_t8015(anv, cmnd)) {
 		ret = BLK_STS_RESOURCE;
 		goto out_free_cmd;
 	}
 
 	if (blk_rq_nr_phys_segments(req)) {
 		ret = apple_nvme_map_data(anv, req, cmnd);
-		if (ret)
-			goto out_release_tag;
+		if (ret) {
+			if (!anv->hw->has_lsq_nvmmu)
+				apple_nvme_release_cid_t8015(anv,
+							     cmnd->common.command_id);
+			goto out_free_cmd;
+		}
 	}
 
 	nvme_start_request(req);
@@ -856,8 +868,6 @@ static blk_status_t apple_nvme_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 	return BLK_STS_OK;
 
-out_release_tag:
-	apple_nvme_t8015_release_cid(anv, cmnd->common.command_id);
 out_free_cmd:
 	nvme_cleanup_cmd(req);
 	return ret;
@@ -1359,10 +1369,7 @@ static int apple_nvme_alloc_tagsets(struct apple_nvme *anv)
 
 	anv->admin_tagset.ops = &apple_nvme_mq_admin_ops;
 	anv->admin_tagset.nr_hw_queues = 1;
-	if (anv->hw->has_lsq_nvmmu)
-		anv->admin_tagset.queue_depth = APPLE_NVME_AQ_MQ_TAG_DEPTH;
-	else
-		anv->tagset.queue_depth = anv->hw->max_queue_depth - 1;
+	anv->admin_tagset.queue_depth = APPLE_NVME_AQ_MQ_TAG_DEPTH;
 	anv->admin_tagset.timeout = NVME_ADMIN_TIMEOUT;
 	anv->admin_tagset.numa_node = NUMA_NO_NODE;
 	anv->admin_tagset.cmd_size = sizeof(struct apple_nvme_iod);
