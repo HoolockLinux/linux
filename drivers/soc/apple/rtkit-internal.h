@@ -19,7 +19,8 @@
 #include <linux/workqueue.h>
 #include "mailbox.h"
 
-#define APPLE_RTKIT_APP_ENDPOINT_START 0x20
+#define APPLE_RTKIT_APP_ENDPOINT_START_V10 0x6
+#define APPLE_RTKIT_APP_ENDPOINT_START_V11 0x20
 #define APPLE_RTKIT_MAX_ENDPOINTS 0x100
 
 struct apple_rtkit {
@@ -35,6 +36,7 @@ struct apple_rtkit {
 
 	int boot_result;
 	int version;
+	u8 app_ep_start;
 
 	unsigned int iop_power_state;
 	unsigned int ap_power_state;

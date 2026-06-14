@@ -16,7 +16,10 @@ maintainers:
 
 properties:
   compatible:
-    const: apple,smc-reboot
+    items:
+      - enum:
+          - apple,smc-reboot
+          - apple,t8015-smc-reboot
 
   nvmem-cells:
     items:
@@ -31,6 +34,12 @@ properties:
       - const: boot_stage
       - const: boot_error_count
       - const: panic_count
+
+  prc-poweroff:
+    type: boolean
+    description: Set to one by loader if the current device is a PRC SKU. With
+      this property, attempting to power off the device when it is connected
+      to power will show a battery indicator after rebooting.
 
 required:
   - compatible

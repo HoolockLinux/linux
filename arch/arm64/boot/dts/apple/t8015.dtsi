@@ -517,6 +517,28 @@
 						#address-cells = <1>;
 						#size-cells = <1>;
 
+						boot_stage: boot-stage@1 {
+							reg = <0x1 0x1>;
+						};
+
+						boot_error_count: boot-error-count@2,0 {
+							reg = <0x2 0x1>;
+							bits = <0 4>;
+						};
+
+						panic_count: panic-count@2,4 {
+							reg = <0x2 0x1>;
+							bits = <4 4>;
+						};
+
+						boot_error_stage: boot-error-stage@3 {
+							reg = <0x3 0x1>;
+						};
+
+						shutdown_flag: shutdown-flag@f {
+							reg = <0xf 0x1>;
+						};
+
 						rtc_offset: rtc-offset@4 {
 							reg = <0x4 0x4>;
 						};
@@ -558,6 +580,28 @@
 			interrupts = <AIC_IRQ 172 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		smc: smc@236000100 {
+			compatible = "apple,t8015-smc", "apple,t8103-smc";
+			reg = <0x2 0x36000100 0x0 0x100>,
+				<0x2 0x36e00000 0x0 0x40000>;
+			reg-names = "smc", "sram";
+			mboxes = <&smc_mbox>;
+			power-domains = <&ps_smc_cpu>;
+
+			smc_hwmon: hwmon {
+				compatible = "apple,smc-hwmon";
+			};
+
+			smc_reboot: reboot {
+				compatible = "apple,t8015-smc-reboot";
+				nvmem-cells = <&shutdown_flag>, <&boot_stage>,
+					<&boot_error_count>, <&panic_count>;
+				nvmem-cell-names = "shutdown_flag", "boot_stage",
+					"boot_error_count", "panic_count";
+				/* To be filled by loader */
+			};
+		};
+
 		pinctrl_smc: pinctrl@236024000 {
 			compatible = "apple,t8015-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x36024000 0x0 0x4000>;
@@ -577,11 +621,19 @@
 				     <AIC_IRQ 203 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 204 IRQ_TYPE_LEVEL_HIGH>,
 				     <AIC_IRQ 205 IRQ_TYPE_LEVEL_HIGH>;
-			/*
-			 * SMC is not yet supported and accessing this pinctrl while SMC is
-			 * suspended results in a hang.
-			 */
-			status = "disabled";
+		};
+
+		smc_mbox: mbox@236808000 {
+			compatible = "apple,t8015-asc-mailbox";
+			reg = <0x2 0x36808000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 209 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 210 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 211 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 212 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
 		};
 
 		ans_mbox: mbox@257008000 {
