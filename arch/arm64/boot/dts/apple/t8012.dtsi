@@ -10,6 +10,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/apple-aic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/pinctrl/apple.h>
 #include <dt-bindings/spmi/spmi.h>
 
@@ -231,6 +232,39 @@
 			clock-names = "uart", "clk_uart_baud0";
 			power-domains = <&ps_uart0>;
 			status = "disabled";
+		};
+
+		bus@20c000000 {
+			compatible = "apple,t8010-usb-complex", "apple,s5l8960x-usb-complex", "simple-pm-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+			nonposted-mmio;
+			ranges;
+
+			reg = <0x2 0x0c900000 0x0 0x100>;
+			power-domains = <&ps_usb>;
+
+			ausbphy0: phy@20c000030 {
+				compatible = "apple,s8000-ausb-phy", "apple,ausb-phy";
+				reg = <0x2 0x0c000030 0x0 0x20>;
+				power-domains = <&ps_usbctrl>;
+				#phy-cells = <1>;
+				/* Tunables to be filled by loader */
+			};
+
+			usbdev: usbdev@20c100000 {
+				compatible = "apple,t8010-dwc2", "apple,dwc2";
+				reg = <0x2 0x0c100000 0x0 0x10000>;
+				interrupts = <AIC_IRQ 304 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clkref>;
+				clock-names = "otg";
+				phys = <&ausbphy0 PHY_TYPE_USB2>;
+				phy-names = "usb2-phy";
+				power-domains = <&ps_usbotg>;
+				resets = <&ps_usbotg>;
+				dr_mode = "peripheral";
+			};
 		};
 
 		pmgr: power-management@20e000000 {
