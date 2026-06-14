@@ -20,10 +20,22 @@
 #define wfe()		asm volatile("wfe" : : : "memory")
 #define wfet(val)	asm volatile("msr s0_3_c1_c0_0, %0"	\
 				     : : "r" (val) : "memory")
-#define wfi()		asm volatile("wfi" : : : "memory")
-#define wfit(val)	asm volatile("msr s0_3_c1_c0_1, %0"	\
-				     : : "r" (val) : "memory")
-
+#define wfi()							\
+	do {							\
+		asm volatile(					\
+		ALTERNATIVE("wfi",				\
+			    "nop",				\
+			    ARM64_WORKAROUND_WFI_STATE)		\
+		: : : "memory");				\
+	} while (0)
+#define wfit(val)						\
+	do {							\
+		asm volatile(					\
+		ALTERNATIVE("msr s0_3_c1_c0_1, %0",		\
+			    "nop",				\
+			    ARM64_WORKAROUND_WFI_STATE)		\
+		: : "r" (val) : "memory");			\
+	} while (0)
 #define isb()		asm volatile("isb" : : : "memory")
 #define dmb(opt)	asm volatile("dmb " #opt : : : "memory")
 #define dsb(opt)	asm volatile("dsb " #opt : : : "memory")
