@@ -1,0 +1,120 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/apple,usb-complex.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple USB Complex
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+description: |
+  Apple USB Complex is a power-mangaged bus that includes remap registers
+  that allows using USB hardware blocks with 32-bit DMA, even without
+  a real IOMMU. For a device connected to the complex to be used, the
+  PM domain associated with the bus must first be turned on, and the
+  remap registers be configured.
+
+  The bindings for Apple USB Complex extend the bindings for "simple-pm-bus".
+
+allOf:
+  - $ref: simple-pm-bus.yaml#
+
+# We need a select here so we don't match all nodes with 'simple-pm-bus'.
+select:
+  properties:
+    compatible:
+      contains:
+        enum:
+          - apple,s5l8960x-usb-complex
+          - apple,t8011-usb-complex
+          - apple,t8015-usb-complex
+  required:
+    - compatible
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - apple,t7000-usb-complex
+              - apple,s8000-usb-complex
+              - apple,t8010-usb-complex
+          - const: apple,s5l8960x-usb-complex
+          - const: simple-pm-bus
+      - items:
+          - enum:
+              - apple,s5l8960x-usb-complex
+              - apple,t8011-usb-complex
+              - apple,t8015-usb-complex
+          - const: simple-pm-bus
+
+  reg:
+    description: |
+      Register ranges for the USB Complex. Some hardware has a USB2 PHY
+      in the middle that are handled by another driver and thus need
+      two ranges to avoid conflicts.
+    minItems: 1
+    maxItems: 2
+
+  dma-ranges:
+    description: |
+      A single range for the memory region to be remapped. It must be a
+      4 GiB range with DMA addresses starting at 0 and are typically
+      mapped to the start of DRAM.
+    maxItems: 1
+
+  nonposted-mmio: true
+
+patternProperties:
+  "^.*@[0-9a-f]+$":
+    description: Hardware attached to the bus
+    type: object
+
+    required:
+      - reg
+
+required:
+  - compatible
+  - reg
+  - dma-ranges
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    soc {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      bus@20c000000 {
+        compatible = "apple,t8011-usb-complex", "simple-pm-bus";
+        #address-cells = <2>;
+        #size-cells = <2>;
+        dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+        nonposted-mmio;
+        ranges;
+
+        reg = <0x2 0x0c000000 0x0 0x40>,
+              <0x2 0x0c000060 0x0 0x40>;
+        power-domains = <&ps_usb>;
+      };
+    };
+
+  - |
+    soc {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      bus@21c000000 {
+        compatible = "apple,t7000-usb-complex", "apple,s5l8960x-usb-complex", "simple-pm-bus";
+        #address-cells = <2>;
+        #size-cells = <2>;
+        dma-ranges = <0x0 0x00000000 0x8 0x00000000 0x1 0x00000000>;
+        nonposted-mmio;
+        ranges;
+
+        reg = <0x2 0x1c900000 0x0 0x100>;
+        power-domains = <&ps_usb>;
+      };
+    };
