@@ -160,36 +160,6 @@ enum dart_type {
 	DART_T8110,
 };
 
-struct apple_dart_hw {
-	enum dart_type type;
-	irqreturn_t (*irq_handler)(int irq, void *dev);
-	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
-
-	u32 oas;
-	enum io_pgtable_fmt fmt;
-
-	int max_sid_count;
-
-	u32 lock;
-	u32 lock_bit;
-
-	u32 error;
-
-	u32 enable_streams;
-
-	u32 tcr;
-	u32 tcr_enabled;
-	u32 tcr_disabled;
-	u32 tcr_bypass;
-	u32 tcr_4level;
-
-	u32 ttbr;
-	u32 ttbr_valid;
-	u32 ttbr_addr_field_shift;
-	u32 ttbr_shift;
-	int ttbr_count;
-};
-
 /*
  * Private structure associated with each DART device.
  *
@@ -232,6 +202,38 @@ struct apple_dart {
 
 	u32 save_tcr[DART_MAX_STREAMS];
 	u32 save_ttbr[DART_MAX_STREAMS][DART_MAX_TTBR];
+};
+
+struct apple_dart_hw {
+	enum dart_type type;
+	irqreturn_t (*irq_handler)(int irq, void *dev);
+	int (*invalidate_tlb)(struct apple_dart_stream_map *stream_map);
+	u32 (*read_tcr)(struct apple_dart *dart, u32 sid);
+	void (*write_tcr)(struct apple_dart *dart, u32 sid, u32 val);
+
+	u32 oas;
+	enum io_pgtable_fmt fmt;
+
+	int max_sid_count;
+
+	u32 lock;
+	u32 lock_bit;
+
+	u32 error;
+
+	u32 enable_streams;
+
+	u32 tcr;
+	u32 tcr_enabled;
+	u32 tcr_disabled;
+	u32 tcr_bypass;
+	u32 tcr_4level;
+
+	u32 ttbr;
+	u32 ttbr_valid;
+	u32 ttbr_addr_field_shift;
+	u32 ttbr_shift;
+	int ttbr_count;
 };
 
 /*
@@ -327,7 +329,17 @@ apple_dart_hw_enable_translation(struct apple_dart_stream_map *stream_map, int l
 	WARN_ON(levels != 3 && levels != 4);
 	WARN_ON(levels == 4 && !dart->four_level);
 	for_each_set_bit(sid, stream_map->sidmap, dart->num_streams)
-		writel(tcr, dart->regs + DART_TCR(dart, sid));
+		dart->hw->write_tcr(dart, sid, tcr);
+}
+
+static u32 apple_dart_t8020_read_tcr(struct apple_dart *dart, u32 sid)
+{
+	return readl(dart->regs + DART_TCR(dart, sid));
+}
+
+static void apple_dart_t8020_write_tcr(struct apple_dart *dart, u32 sid, u32 val)
+{
+	writel(val, dart->regs + DART_TCR(dart, sid));
 }
 
 static void apple_dart_hw_disable_dma(struct apple_dart_stream_map *stream_map)
@@ -1260,6 +1272,8 @@ static const struct apple_dart_hw apple_dart_hw_t8103 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 16,
@@ -1286,6 +1300,8 @@ static const struct apple_dart_hw apple_dart_hw_t8103_usb4 = {
 	.type = DART_T8020,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 36,
 	.fmt = APPLE_DART,
 	.max_sid_count = 64,
@@ -1312,6 +1328,8 @@ static const struct apple_dart_hw apple_dart_hw_t6000 = {
 	.type = DART_T6000,
 	.irq_handler = apple_dart_t8020_irq,
 	.invalidate_tlb = apple_dart_t8020_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.oas = 42,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 16,
@@ -1338,6 +1356,8 @@ static const struct apple_dart_hw apple_dart_hw_t8110 = {
 	.type = DART_T8110,
 	.irq_handler = apple_dart_t8110_irq,
 	.invalidate_tlb = apple_dart_t8110_hw_invalidate_tlb,
+	.read_tcr = apple_dart_t8020_read_tcr,
+	.write_tcr = apple_dart_t8020_write_tcr,
 	.fmt = APPLE_DART2,
 	.max_sid_count = 256,
 
@@ -1366,7 +1386,7 @@ static __maybe_unused int apple_dart_suspend(struct device *dev)
 	unsigned int sid, idx;
 
 	for (sid = 0; sid < dart->num_streams; sid++) {
-		dart->save_tcr[sid] = readl(dart->regs + DART_TCR(dart, sid));
+		dart->save_tcr[sid] = dart->hw->read_tcr(dart, sid);
 		for (idx = 0; idx < dart->hw->ttbr_count; idx++)
 			dart->save_ttbr[sid][idx] =
 				readl(dart->regs + DART_TTBR(dart, sid, idx));
@@ -1391,7 +1411,7 @@ static __maybe_unused int apple_dart_resume(struct device *dev)
 		for (idx = 0; idx < dart->hw->ttbr_count; idx++)
 			writel(dart->save_ttbr[sid][idx],
 			       dart->regs + DART_TTBR(dart, sid, idx));
-		writel(dart->save_tcr[sid], dart->regs + DART_TCR(dart, sid));
+		dart->hw->write_tcr(dart, sid, dart->save_tcr[sid]);
 	}
 
 	return 0;
