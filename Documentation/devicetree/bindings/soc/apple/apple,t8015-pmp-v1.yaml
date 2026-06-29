@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/soc/apple/apple,t8015-pmp-v1.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple T8015 Power Management Processor
+
+maintainers:
+  - Nick Chan <towinchemi@gmail.com>
+
+description:
+  Apple Power Management Processor regulates power consumption on Apple
+  SoCs. This bindings describes the variant found on T8015.
+
+properties:
+  compatible:
+    enum:
+      - apple,t8015-pmp-v1
+
+  reg:
+    items:
+      - description: ARM Cortex-A7 area
+      - description: CPU control area
+      - description: SRAM area
+
+  reg-names:
+    items:
+      - const: akf
+      - const: control
+      - const: sram
+
+  firmware-name:
+    maxItems: 1
+
+  mboxes:
+    maxItems: 1
+
+  mbox-names:
+    const: mbox
+
+  power-domains:
+    items:
+      - description: PMP CPU power domain
+      - description: PMP SRAM power domain
+
+  power-domain-names:
+    items:
+      - const: pmp
+      - const: sram
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - firmware-name
+  - mboxes
+  - power-domains
+  - power-domain-names
+
+examples:
+  - |
+    soc {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      pmp: pmp@232300000 {
+        compatible = "apple,t8015-pmp-v1";
+        reg = <0x2 0x32300000 0x0 0x8000>,
+              <0x2 0x32400000 0x0 0x10000>,
+              <0x2 0x32500000 0x0 0x20000>;
+        reg-names = "akf", "control", "sram";
+        mboxes = <&pmp_mbox>;
+        mbox-names = "mbox";
+        power-domains = <&ps_pmp>, <&ps_pms_sram>;
+        power-domain-names = "pmp", "sram";
+        firmware-name = "apple/pmp-t8015.bin";
+      };
+    };

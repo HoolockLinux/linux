@@ -28,6 +28,16 @@ config APPLE_RTKIT
 
 	  Say 'y' here if you have an Apple SoC.
 
+config APPLE_PMP_T8015_V1
+	tristate "Apple T8015 PMP"
+	depends on ARCH_APPLE || COMPILE_TEST
+	help
+	  Apple PMP is a coprocessor with power-management functions. This
+	  option enable support for booting its firmware, which is enough
+	  to reduce power consumption.
+
+	  Say 'y' here if you have an Apple A11 SoC.
+
 config APPLE_SART
 	tristate "Apple SART DMA address filter"
 	depends on ARCH_APPLE || COMPILE_TEST
