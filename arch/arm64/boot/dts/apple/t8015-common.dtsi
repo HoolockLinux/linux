@@ -13,6 +13,8 @@
 	aliases {
 		ausbphy0 = &ausbphy0;
 		serial0 = &serial0;
+		/* Used by loader to fill properties*/
+		smc = &smc;
 	};
 
 	chosen {
@@ -47,4 +49,41 @@
 
 &serial0 {
 	status = "okay";
+};
+
+&smc_hwmon {
+	temperature-TG0B {
+		apple,key-id = "TG0B";
+		label = "Battery Temp";
+	};
+
+	temperature-TG0V {
+		apple,key-id = "TG0V";
+		label = "Battery Flex Temp";
+	};
+
+	temperature-TP1d {
+		apple,key-id = "TP1d";
+		label = "Forehead Temp";
+	};
+
+	temperature-TP2d {
+		apple,key-id = "TP2d";
+		label = "Rear Camera Temp";
+	};
+
+	temperature-TP3d {
+		apple,key-id = "TP3d";
+		label = "Cellular Radio Temp";
+	};
+
+	temperature-TP4d {
+		apple,key-id = "TP4d";
+		label = "AP SoC Temp";
+	};
+
+	temperature-TP5d {
+		apple,key-id = "TP5d";
+		label = "Charger Temp";
+	};
 };

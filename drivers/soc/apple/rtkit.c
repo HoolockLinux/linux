@@ -71,7 +71,7 @@ enum {
 #define APPLE_RTKIT_OSLOG_SIZE GENMASK_ULL(55, 36)
 #define APPLE_RTKIT_OSLOG_IOVA GENMASK_ULL(35, 0)
 
-#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 11
+#define APPLE_RTKIT_MIN_SUPPORTED_VERSION 10
 #define APPLE_RTKIT_MAX_SUPPORTED_VERSION 12
 
 struct apple_rtkit_rx_work {
@@ -140,6 +140,11 @@ static void apple_rtkit_management_rx_hello(struct apple_rtkit *rtk, u64 msg)
 		 want_ver);
 	rtk->version = want_ver;
 
+	if (rtk->version < 11)
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V10;
+	else
+		rtk->app_ep_start = APPLE_RTKIT_APP_ENDPOINT_START_V11;
+
 	reply = FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MINVER, want_ver);
 	reply |= FIELD_PREP(APPLE_RTKIT_MGMT_HELLO_MAXVER, want_ver);
 	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_HELLO_REPLY, reply);
@@ -169,17 +174,19 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 	}
 
 	reply = FIELD_PREP(APPLE_RTKIT_MGMT_EPMAP_BASE, base);
-	if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
-		reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
-	else
-		reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	if (rtk->version > 10) {
+		if (msg & APPLE_RTKIT_MGMT_EPMAP_LAST)
+			reply |= APPLE_RTKIT_MGMT_EPMAP_LAST;
+		else
+			reply |= APPLE_RTKIT_MGMT_EPMAP_REPLY_MORE;
+	}
 
 	apple_rtkit_management_send(rtk, APPLE_RTKIT_MGMT_EPMAP_REPLY, reply);
 
-	if (!(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
+	if (rtk->version > 10 && !(msg & APPLE_RTKIT_MGMT_EPMAP_LAST))
 		return;
 
-	for_each_set_bit(ep, rtk->endpoints, APPLE_RTKIT_APP_ENDPOINT_START) {
+	for_each_set_bit(ep, rtk->endpoints, rtk->app_ep_start) {
 		switch (ep) {
 		/* the management endpoint is started by default */
 		case APPLE_RTKIT_EP_MGMT:
@@ -547,20 +554,21 @@ static void apple_rtkit_rx_work(struct work_struct *work)
 	case APPLE_RTKIT_EP_OSLOG:
 		apple_rtkit_oslog_rx(rtk, rtk_work->msg);
 		break;
-	case APPLE_RTKIT_APP_ENDPOINT_START ... 0xff:
-		if (rtk->ops->recv_message)
+	default:
+		if (rtk_work->ep >= rtk->app_ep_start && rtk->ops->recv_message)
 			rtk->ops->recv_message(rtk->cookie, rtk_work->ep,
 					       rtk_work->msg);
-		else
+		else if (rtk_work->ep >= rtk->app_ep_start)
 			dev_warn(
 				rtk->dev,
 				"Received unexpected message to EP%02d: %llx\n",
 				rtk_work->ep, rtk_work->msg);
+		else
+			dev_warn(
+				rtk->dev,
+				"RTKit: message to unknown endpoint %02x: %llx\n",
+				rtk_work->ep, rtk_work->msg);
 		break;
-	default:
-		dev_warn(rtk->dev,
-			 "RTKit: message to unknown endpoint %02x: %llx\n",
-			 rtk_work->ep, rtk_work->msg);
 	}
 
 	kfree(rtk_work);
@@ -585,7 +593,7 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 			 "RTKit: Message to undiscovered endpoint 0x%02x\n",
 			 ep);
 
-	if (ep >= APPLE_RTKIT_APP_ENDPOINT_START &&
+	if (ep >= rtk->app_ep_start &&
 	    rtk->ops->recv_message_early &&
 	    rtk->ops->recv_message_early(rtk->cookie, ep, msg.msg0))
 		return;
@@ -615,8 +623,7 @@ int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
 		return -EINVAL;
 	}
 
-	if (ep >= APPLE_RTKIT_APP_ENDPOINT_START &&
-	    !apple_rtkit_is_running(rtk)) {
+	if (ep >= rtk->app_ep_start && !apple_rtkit_is_running(rtk)) {
 		dev_warn(rtk->dev,
 			 "RTKit: Endpoint 0x%02x is not running, cannot send message\n", ep);
 		return -EINVAL;
@@ -645,7 +652,7 @@ int apple_rtkit_start_ep(struct apple_rtkit *rtk, u8 endpoint)
 
 	if (!test_bit(endpoint, rtk->endpoints))
 		return -EINVAL;
-	if (endpoint >= APPLE_RTKIT_APP_ENDPOINT_START &&
+	if (endpoint >= rtk->app_ep_start &&
 	    !apple_rtkit_is_running(rtk))
 		return -EINVAL;
 
@@ -674,6 +681,13 @@ struct apple_rtkit *apple_rtkit_init(struct device *dev, void *cookie,
 	rtk->dev = dev;
 	rtk->cookie = cookie;
 	rtk->ops = ops;
+
+	/*
+	 * The management endpoint is required to receive the HELLO message
+	 * and infer the start of app endpoints so assume it is a system
+	 * endpoint here and update this value when HELLO is received.
+	 */
+	rtk->app_ep_start = APPLE_RTKIT_EP_CRASHLOG;
 
 	init_completion(&rtk->epmap_completion);
 	init_completion(&rtk->iop_pwr_ack_completion);
@@ -866,6 +880,15 @@ int apple_rtkit_poweroff(struct apple_rtkit *rtk)
 	return apple_rtkit_reinit(rtk);
 }
 EXPORT_SYMBOL_GPL(apple_rtkit_poweroff);
+
+u8 apple_rtkit_app_ep_to_ep(struct apple_rtkit *rtk, u8 app_ep)
+{
+	if (!apple_rtkit_is_running(rtk))
+		return 0;
+
+	return rtk->app_ep_start + app_ep;
+}
+EXPORT_SYMBOL_GPL(apple_rtkit_app_ep_to_ep);
 
 int apple_rtkit_idle(struct apple_rtkit *rtk)
 {
