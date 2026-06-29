@@ -200,6 +200,20 @@ cpu_enable_cache_maint_trap(const struct arm64_cpu_capabilities *__unused)
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_UCI, 0);
 }
 
+static void __maybe_unused
+apple_fusion_taint(const struct arm64_cpu_capabilities *__unused)
+{
+	/*
+	 * A variable MPIDR_EL1 would have been a receipe for disaster, but
+	 * since Apple A10, A10X, T2 does not use any of KVM, GIC, ACPI, PSCI
+	 * or cpuidle, and that all CPUs switch between P-mode and E-mode
+	 * together, we do not need to do anything about this (yet). However,
+	 * this is still cursed enough to taint the kernel.
+	 */
+	pr_info_once("Apple Fusion Architecture detected, tainting kernel.\n");
+	add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
+}
+
 #define CAP_MIDR_RANGE(model, v_min, r_min, v_max, r_max)	\
 	.matches = is_affected_midr_range,			\
 	.midr_range = MIDR_RANGE(model, v_min, r_min, v_max, r_max)
@@ -638,6 +652,14 @@ static const struct midr_range erratum_ac04_cpu_23_list[] = {
 };
 #endif
 
+#ifdef CONFIG_ARM64_ERRATUM_APPLE_FUSION
+static const struct midr_range apple_fusion_list[] = {
+	MIDR_ALL_VERSIONS(MIDR_APPLE_A10_T2_HURRICANE_ZEPHYR),
+	MIDR_ALL_VERSIONS(MIDR_APPLE_A10X_HURRICANE_ZEPHYR),
+	{}
+};
+#endif
+
 #ifdef CONFIG_ARM64_WORKAROUND_DISABLE_CNP
 static const struct midr_range cnp_erratum_cpus[] = {
 #ifdef CONFIG_NVIDIA_CARMEL_CNP_ERRATUM
@@ -992,6 +1014,14 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.desc = "AmpereOne erratum AC04_CPU_23",
 		.capability = ARM64_WORKAROUND_AMPERE_AC04_CPU_23,
 		ERRATA_MIDR_RANGE_LIST(erratum_ac04_cpu_23_list),
+	},
+#endif
+#ifdef CONFIG_ARM64_ERRATUM_APPLE_FUSION
+	{
+		.desc = "Apple Fusion Architecture",
+		.capability = ARM64_WORKAROUND_APPLE_FUSION,
+		ERRATA_MIDR_RANGE_LIST(apple_fusion_list),
+		.cpu_enable = apple_fusion_taint,
 	},
 #endif
 	{
