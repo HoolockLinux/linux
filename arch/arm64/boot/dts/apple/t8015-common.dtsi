@@ -15,6 +15,7 @@
 		serial0 = &serial0;
 		/* Used by loader to fill properties*/
 		smc = &smc;
+		bluetooth0 = &bluetooth;
 	};
 
 	chosen {
@@ -49,6 +50,18 @@
 
 &serial0 {
 	status = "okay";
+};
+
+&serial1 {
+	status = "okay";
+
+	bluetooth: bluetooth {
+		compatible = "brcm,bcm4349-bt-apple";
+		device-wakeup-gpios = <&pinctrl_ap 2 GPIO_ACTIVE_HIGH>;
+		host-wakeup-gpios = <&smc_gpio 10 GPIO_ACTIVE_HIGH>;
+		shutdown-gpios = <&smc_gpio 9 GPIO_ACTIVE_HIGH>;
+		max-speed = <1500000>;
+	};
 };
 
 &smc_hwmon {

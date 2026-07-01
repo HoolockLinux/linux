@@ -54,6 +54,7 @@
  * @no_early_set_baudrate: Disallow set baudrate before driver setup()
  * @drive_rts_on_open: drive RTS signal on ->open() when platform requires it
  * @no_uart_clock_set: UART clock set command for >3Mbps mode is unavailable
+ * @taurus_cal: Device uses 'Taurus' calibration blob
  * @max_autobaud_speed: max baudrate supported by device in autobaud mode
  * @max_speed: max baudrate supported
  */
@@ -61,6 +62,7 @@ struct bcm_device_data {
 	bool	no_early_set_baudrate;
 	bool	drive_rts_on_open;
 	bool	no_uart_clock_set;
+	bool	taurus_cal;
 	u32	max_autobaud_speed;
 	u32	max_speed;
 };
@@ -108,6 +110,8 @@ struct bcm_device_data {
  * @pcm_int_params: keep the initial PCM configuration
  * @use_autobaud_mode: start Bluetooth device in autobaud mode
  * @max_autobaud_speed: max baudrate supported by device in autobaud mode
+ * @taurus_cal_blob: "Taurus" calibration blob used for some chips
+ * @taurus_cal_size: "Taurus" calibration blob size
  */
 struct bcm_device {
 	/* Must be the first member, hci_serdev.c expects this. */
@@ -149,6 +153,9 @@ struct bcm_device {
 	bool			use_autobaud_mode;
 	u8			pcm_int_params[5];
 	u32			max_autobaud_speed;
+
+	const void *taurus_cal_blob;
+	int taurus_cal_size;
 };
 
 /* generic bcm uart resources */
@@ -158,6 +165,13 @@ struct bcm_data {
 
 	struct bcm_device	*dev;
 };
+
+#define BCM4349_CALIBRATION_CHUNK_SIZE 0xe6
+struct bcm4349_hci_send_calibration_cmd {
+	u8 unk;
+	__le16 blocks_left;
+	u8 data[BCM4349_CALIBRATION_CHUNK_SIZE];
+} __packed;
 
 /* List of BCM BT UART devices */
 static DEFINE_MUTEX(bcm_device_lock);
@@ -370,6 +384,64 @@ unlock:
 	mutex_unlock(&bcm_device_lock);
 
 	return err;
+}
+
+static int bcm4349_send_calibration_chunk(struct hci_uart *hu,
+				      const void *data, size_t data_len,
+				      u16 blocks_left)
+{
+        struct bcm4349_hci_send_calibration_cmd cmd;
+        struct sk_buff *skb;
+
+        if (data_len > sizeof(cmd.data))
+                return -EINVAL;
+
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.unk = 0x03;
+        cmd.blocks_left = cpu_to_le16(blocks_left);
+        memcpy(cmd.data, data, data_len);
+
+        skb = __hci_cmd_sync(hu->hdev, 0xfd97, sizeof(cmd), &cmd,
+                             HCI_INIT_TIMEOUT);
+        if (IS_ERR(skb))
+                return PTR_ERR(skb);
+
+        kfree_skb(skb);
+        return 0;
+}
+
+static int bcm4349_send_calibration(struct hci_uart *hu,
+				    const void *data, size_t data_size)
+{
+	int ret;
+	size_t i, left, transfer_len;
+	size_t blocks =
+		DIV_ROUND_UP(data_size, (size_t)BCM4349_CALIBRATION_CHUNK_SIZE);
+
+	if (!data) {
+		bt_dev_dbg(hu->hdev,
+			"no calibration data available.\n");
+		return -ENOENT;
+	}
+
+	bt_dev_info(hu->hdev, "sending %zu bytes of taurus calibration", data_size);
+
+	for (i = 0, left = data_size; i < blocks; ++i, left -= transfer_len) {
+		transfer_len =
+			min_t(size_t, left, BCM4349_CALIBRATION_CHUNK_SIZE);
+
+		ret = bcm4349_send_calibration_chunk(
+			hu, data + i * BCM4349_CALIBRATION_CHUNK_SIZE,
+			transfer_len, blocks - i - 1);
+
+		if (ret) {
+			bt_dev_dbg(hu->hdev,
+				"send calibration chunk failed with %d\n", ret);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 static const struct bcm_set_sleep_mode default_sleep_params = {
@@ -637,6 +709,13 @@ static int bcm_setup(struct hci_uart *hu)
 	err = btbcm_finalize(hu->hdev, &fw_load_done, use_autobaud_mode);
 	if (err)
 		return err;
+
+	if (bcm->dev->taurus_cal_blob) {
+		err = bcm4349_send_calibration(hu, bcm->dev->taurus_cal_blob,
+					       bcm->dev->taurus_cal_size);
+		if (err)
+			return err;
+	}
 
 	/* Some devices ship with the controller default address.
 	 * Allow the bootloader to set a valid address through the
@@ -1223,6 +1302,9 @@ static int bcm_acpi_probe(struct bcm_device *dev)
 
 static int bcm_of_probe(struct bcm_device *bdev)
 {
+	const struct bcm_device_data *data;
+	struct device_node *np = bdev->dev->of_node;
+
 	bdev->use_autobaud_mode = device_property_read_bool(bdev->dev,
 							    "brcm,requires-autobaud-mode");
 	device_property_read_u32(bdev->dev, "max-speed", &bdev->oper_speed);
@@ -1231,6 +1313,20 @@ static int bcm_of_probe(struct bcm_device *bdev)
 	bdev->irq = of_irq_get_byname(bdev->dev->of_node, "host-wakeup");
 	bdev->irq_active_low = irq_get_trigger_type(bdev->irq)
 			     & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_LEVEL_LOW);
+
+	data = device_get_match_data(bdev->dev);
+
+	if (!data || !data->taurus_cal)
+		return 0;
+
+	bdev->taurus_cal_blob = of_get_property(np, "brcm,taurus-cal-blob",
+						&bdev->taurus_cal_size);
+        if (!bdev->taurus_cal_blob) {
+		dev_err(bdev->dev,
+			"no brcm,taurus-cal-blob property\n");
+		return -ENOENT;
+	}
+
 	return 0;
 }
 
@@ -1568,6 +1664,11 @@ static struct bcm_device_data bcm4354_device_data = {
 	.no_early_set_baudrate = true,
 };
 
+static struct bcm_device_data bcm4349_apple_device_data = {
+	.drive_rts_on_open = true,
+	.taurus_cal = true,
+};
+
 static struct bcm_device_data bcm43438_device_data = {
 	.drive_rts_on_open = true,
 };
@@ -1590,6 +1691,7 @@ static const struct of_device_id bcm_bluetooth_of_match[] = {
 	{ .compatible = "brcm,bcm43430a1-bt" },
 	{ .compatible = "brcm,bcm43438-bt", .data = &bcm43438_device_data },
 	{ .compatible = "brcm,bcm4349-bt", .data = &bcm43438_device_data },
+	{ .compatible = "brcm,bcm4349-bt-apple", .data = &bcm4349_apple_device_data },
 	{ .compatible = "brcm,bcm43540-bt", .data = &bcm4354_device_data },
 	{ .compatible = "brcm,bcm4335a0" },
 	{ .compatible = "cypress,cyw4373a0-bt", .data = &cyw4373a0_device_data },

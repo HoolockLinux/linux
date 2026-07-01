@@ -336,6 +336,21 @@
 			status = "disabled";
 		};
 
+		serial1: serial@22e604000 {
+			compatible = "apple,s5l-uart";
+			reg = <0x2 0x2e604000 0x0 0x4000>;
+			reg-io-width = <4>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 283 IRQ_TYPE_LEVEL_HIGH>;
+			/* Use the bootloader-enabled clocks for now. */
+			clocks = <&clkref>, <&clkref>;
+			clock-names = "uart", "clk_uart_baud0";
+			pinctrl-0 = <&uart1_pins>;
+			pinctrl-names = "default";
+			power-domains = <&ps_uart1>;
+			status = "disabled";
+		};
+
 		bus@230000000 {
 			compatible = "apple,t8015-usb-complex", "simple-pm-bus";
 			#address-cells = <2>;
@@ -494,6 +509,11 @@
 				pinmux = <APPLE_PINMUX(184, 1)>,
 					 <APPLE_PINMUX(183, 1)>;
 			};
+
+			uart1_pins: uart1-pins {
+				pinmux = <APPLE_PINMUX(211, 1)>,
+					 <APPLE_PINMUX(213, 1)>;
+			};
 		};
 
 		pinctrl_aop: pinctrl@2340f0000 {
@@ -615,6 +635,12 @@
 			reg-names = "smc", "sram";
 			mboxes = <&smc_mbox>;
 			power-domains = <&ps_smc_cpu>;
+
+			smc_gpio: gpio {
+				compatible = "apple,smc-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+                        };
 
 			smc_hwmon: hwmon {
 				compatible = "apple,smc-hwmon";
