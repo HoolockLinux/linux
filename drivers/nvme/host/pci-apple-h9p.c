@@ -254,6 +254,68 @@ static void nvme_pci_apple_h9p_free_req(struct nvme_dev *dev,
 	spin_unlock_irqrestore(&h9p->req_lock, flags);
 }
 
+static blk_status_t nvme_pci_apple_h9p_map_bvec(struct nvme_dev *dev,
+						struct request *req,
+						struct nvme_iod *iod,
+						struct apple_h9p_nvme_req *hreq,
+						const struct bio_vec *bv,
+						unsigned int total,
+						unsigned int *npages,
+						unsigned int *consumed,
+						u64 *offs)
+{
+	dma_addr_t dma_addr;
+	u64 phys;
+	unsigned int len = bv->bv_len;
+
+	if (!len)
+		return BLK_STS_OK;
+
+	if (WARN_ON_ONCE(iod->nr_dma_vecs >= blk_rq_nr_phys_segments(req)))
+		return BLK_STS_IOERR;
+
+	dma_addr = dma_map_bvec(dev->dev, bv, rq_dma_dir(req), 0);
+	if (dma_mapping_error(dev->dev, dma_addr))
+		return BLK_STS_RESOURCE;
+
+	iod->dma_vecs[iod->nr_dma_vecs].addr = dma_addr;
+	iod->dma_vecs[iod->nr_dma_vecs].len = len;
+	iod->nr_dma_vecs++;
+
+	phys = page_to_phys(bv->bv_page) + bv->bv_offset;
+	if (!*consumed) {
+		*offs = phys & (APPLE_H9P_NVMMU_PAGE_SIZE - 1);
+		phys -= *offs;
+		len += *offs;
+	} else if (phys & (APPLE_H9P_NVMMU_PAGE_SIZE - 1)) {
+		dev_err_ratelimited(dev->dev,
+				    "Apple H9P FlatDMA segment is not page-aligned: phys=%#llx\n",
+				    phys);
+		return BLK_STS_IOERR;
+	}
+
+	if (*consumed + bv->bv_len != total &&
+	    (len & (APPLE_H9P_NVMMU_PAGE_SIZE - 1))) {
+		dev_err_ratelimited(dev->dev,
+				    "Apple H9P FlatDMA segment length is not page-aligned: len=%#x\n",
+				    len);
+		return BLK_STS_IOERR;
+	}
+
+	while (len) {
+		if (*npages >= APPLE_H9P_NVMMU_MAX_PAGES)
+			return BLK_STS_IOERR;
+
+		hreq->pages[(*npages)++] = phys;
+		phys += APPLE_H9P_NVMMU_PAGE_SIZE;
+		len = len > APPLE_H9P_NVMMU_PAGE_SIZE ?
+			len - APPLE_H9P_NVMMU_PAGE_SIZE : 0;
+	}
+
+	*consumed += bv->bv_len;
+	return BLK_STS_OK;
+}
+
 static bool nvme_pci_apple_h9p_unmap_data(struct request *req)
 {
 	struct nvme_iod *iod = blk_mq_rq_to_pdu(req);
@@ -288,7 +350,7 @@ static blk_status_t nvme_pci_apple_h9p_map_data(struct request *req)
 	struct req_iterator iter;
 	struct bio_vec bv;
 	dma_addr_t flatdma;
-	u64 phys, offs = 0;
+	u64 offs = 0;
 	unsigned int tag, npages = 0, consumed = 0;
 	unsigned int total = blk_rq_payload_bytes(req);
 	blk_status_t status;
@@ -310,61 +372,30 @@ static blk_status_t nvme_pci_apple_h9p_map_data(struct request *req)
 		goto out_unmap;
 	}
 
-	rq_for_each_bvec(bv, req, iter) {
-		dma_addr_t dma_addr;
-		unsigned int len = bv.bv_len;
-
-		if (WARN_ON_ONCE(iod->nr_dma_vecs >=
-				 blk_rq_nr_phys_segments(req))) {
-			status = BLK_STS_IOERR;
+	if (req->rq_flags & RQF_SPECIAL_PAYLOAD) {
+		bv = req_bvec(req);
+		status = nvme_pci_apple_h9p_map_bvec(dev, req, iod, hreq, &bv,
+						     total, &npages, &consumed,
+						     &offs);
+		if (status)
 			goto out_unmap;
-		}
-
-		dma_addr = dma_map_bvec(dev->dev, &bv, rq_dma_dir(req), 0);
-		if (dma_mapping_error(dev->dev, dma_addr)) {
-			status = BLK_STS_RESOURCE;
-			goto out_unmap;
-		}
-
-		iod->dma_vecs[iod->nr_dma_vecs].addr = dma_addr;
-		iod->dma_vecs[iod->nr_dma_vecs].len = len;
-		iod->nr_dma_vecs++;
-
-		phys = page_to_phys(bv.bv_page) + bv.bv_offset;
-		if (!consumed) {
-			offs = phys & (APPLE_H9P_NVMMU_PAGE_SIZE - 1);
-			phys -= offs;
-			len += offs;
-		} else if (phys & (APPLE_H9P_NVMMU_PAGE_SIZE - 1)) {
-			dev_err_ratelimited(dev->dev,
-					    "Apple H9P FlatDMA segment is not page-aligned: phys=%#llx\n",
-					    phys);
-			status = BLK_STS_IOERR;
-			goto out_unmap;
-		}
-
-		if (consumed + bv.bv_len != total &&
-		    (len & (APPLE_H9P_NVMMU_PAGE_SIZE - 1))) {
-			dev_err_ratelimited(dev->dev,
-					    "Apple H9P FlatDMA segment length is not page-aligned: len=%#x\n",
-					    len);
-			status = BLK_STS_IOERR;
-			goto out_unmap;
-		}
-
-		while (len) {
-			if (npages >= APPLE_H9P_NVMMU_MAX_PAGES) {
-				status = BLK_STS_IOERR;
+	} else {
+		rq_for_each_bvec(bv, req, iter) {
+			status = nvme_pci_apple_h9p_map_bvec(dev, req, iod,
+							     hreq, &bv, total,
+							     &npages, &consumed,
+							     &offs);
+			if (status)
 				goto out_unmap;
-			}
-
-			hreq->pages[npages++] = phys;
-			phys += APPLE_H9P_NVMMU_PAGE_SIZE;
-			len = len > APPLE_H9P_NVMMU_PAGE_SIZE ?
-				len - APPLE_H9P_NVMMU_PAGE_SIZE : 0;
 		}
+	}
 
-		consumed += bv.bv_len;
+	if (consumed != total) {
+		dev_err_ratelimited(dev->dev,
+				    "Apple H9P FlatDMA payload length mismatch: consumed=%#x total=%#x\n",
+				    consumed, total);
+		status = BLK_STS_IOERR;
+		goto out_unmap;
 	}
 
 	ret = apple_h9p_pcie_map_nvmmu(dev->dev, tag, hreq->pages, npages,
@@ -409,7 +440,8 @@ static u32 nvme_pci_apple_h9p_max_hw_sectors(struct nvme_dev *dev,
 }
 
 const struct nvme_pci_dma_ops nvme_pci_apple_h9p_ops = {
-	.quirks		= NVME_QUIRK_SINGLE_VECTOR | NVME_QUIRK_SHARED_TAGS,
+	.quirks		= NVME_QUIRK_SINGLE_VECTOR | NVME_QUIRK_SHARED_TAGS |
+			  NVME_QUIRK_NO_RUNTIME_RESET,
 	.init		= nvme_pci_apple_h9p_init,
 	.exit		= nvme_pci_apple_h9p_exit,
 	.preinit	= nvme_pci_apple_h9p_preinit,

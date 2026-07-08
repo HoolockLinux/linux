@@ -178,6 +178,13 @@ enum nvme_quirks {
 	 * Align dma pool segment size to 512 bytes
 	 */
 	NVME_QUIRK_DMAPOOL_ALIGN_512		= (1 << 22),
+
+	/*
+	 * Controller reset is not safe at runtime.  This is for controllers
+	 * where CC.EN transitions after a live boot can put the device into an
+	 * unrecoverable state without an external power cycle.
+	 */
+	NVME_QUIRK_NO_RUNTIME_RESET		= (1 << 23),
 };
 
 static inline char *nvme_quirk_name(enum nvme_quirks q)
@@ -229,6 +236,8 @@ static inline char *nvme_quirk_name(enum nvme_quirks q)
 		return "broken_msi";
 	case NVME_QUIRK_DMAPOOL_ALIGN_512:
 		return "dmapool_align_512";
+	case NVME_QUIRK_NO_RUNTIME_RESET:
+		return "no_runtime_reset";
 	}
 
 	return "unknown";

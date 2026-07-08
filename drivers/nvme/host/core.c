@@ -214,6 +214,12 @@ static inline void nvme_stop_failfast_work(struct nvme_ctrl *ctrl)
 
 int nvme_reset_ctrl(struct nvme_ctrl *ctrl)
 {
+	if (ctrl->quirks & NVME_QUIRK_NO_RUNTIME_RESET) {
+		dev_warn_ratelimited(ctrl->device,
+				     "runtime controller reset is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
 	if (!nvme_change_ctrl_state(ctrl, NVME_CTRL_RESETTING))
 		return -EBUSY;
 	if (!queue_work(nvme_reset_wq, &ctrl->reset_work))
