@@ -189,18 +189,21 @@ static const struct rtc_class_ops apple_pmic_rtc_ops = {
 };
 
 static const struct apple_pmic_rtc_regs amber_regs = {
-	.control = 0x4,
 	.counter = 0x6
 };
 
 static const struct apple_pmic_rtc_regs antigua_regs = {
-	.control = 0x0,
 	.counter = 0x2
+};
+
+static const struct apple_pmic_rtc_regs calpe_regs = {
+	.counter = 0x5
 };
 
 static const struct of_device_id apple_pmic_id_table[] = {
 	{ .compatible = "apple,amber-pmic-rtc", .data = &amber_regs },
 	{ .compatible = "apple,antigua-pmic-rtc", .data = &antigua_regs },
+	{ .compatible = "apple,calpe-pmic-rtc", .data = &calpe_regs },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, apple_pmic_id_table);
