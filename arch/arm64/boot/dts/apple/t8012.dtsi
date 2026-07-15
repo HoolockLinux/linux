@@ -329,9 +329,9 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 
-				rtc@2603 {
-					compatible = "apple,calpe-pmic-rtc", "apple,antigua-pmic-rtc";
-					reg = <0x2603 0x10>;
+				rtc@2600 {
+					compatible = "apple,calpe-pmic-rtc";
+					reg = <0x2600 0x10>;
 					nvmem-cells = <&rtc_offset>;
 					nvmem-cell-names = "rtc_offset";
 				};
