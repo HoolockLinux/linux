@@ -33,10 +33,10 @@ properties:
               - apple,angel-pmic-rtc
               - apple,august-pmic-rtc
               - apple,agnes-pmic-rtc
-              - apple,calpe-pmic-rtc # Counter also exposed via SMC
           - const: apple,antigua-pmic-rtc
       - const: apple,amber-pmic-rtc
       - const: apple,antigua-pmic-rtc
+      - const: apple,calpe-pmic-rtc
 
   reg:
     maxItems: 1
