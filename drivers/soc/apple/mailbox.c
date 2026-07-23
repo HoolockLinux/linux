@@ -32,6 +32,30 @@
 #include <linux/types.h>
 #include "mailbox.h"
 
+#define APPLE_AKF_MBOX_IRQ_MASK		0x0
+#define APPLE_AKF_MBOX_IRQ_ENABLE	0x4
+
+#define APPLE_AKF_MBOX_IRQ_A2I_EMPTY BIT(0)
+#define APPLE_AKF_MBOX_IRQ_A2I_NOT_EMPTY BIT(4)
+#define APPLE_AKF_MBOX_IRQ_I2A_EMPTY BIT(8)
+#define APPLE_AKF_MBOX_IRQ_I2A_NOT_EMPTY BIT(12)
+
+#define APPLE_AKF_MBOX_CONTROL_ENABLE	BIT(0)
+#define APPLE_AKF_MBOX_CONTROL_FULL	BIT(16)
+#define APPLE_AKF_MBOX_CONTROL_EMPTY	BIT(17)
+
+#define APPLE_AKF_MBOX_A2I_CONTROL	0x8
+#define APPLE_AKF_MBOX_A2I_SEND0	0x10
+#define APPLE_AKF_MBOX_A2I_SEND1	0x14
+#define APPLE_AKF_MBOX_A2I_RECV0	0x18
+#define APPLE_AKF_MBOX_A2I_RECV1	0x1c
+
+#define APPLE_AKF_MBOX_I2A_CONTROL	0x20
+#define APPLE_AKF_MBOX_I2A_SEND0	0x30
+#define APPLE_AKF_MBOX_I2A_SEND1	0x34
+#define APPLE_AKF_MBOX_I2A_RECV0	0x38
+#define APPLE_AKF_MBOX_I2A_RECV1	0x3c
+
 #define APPLE_ASC_MBOX_CONTROL_FULL BIT(16)
 #define APPLE_ASC_MBOX_CONTROL_EMPTY BIT(17)
 
@@ -83,6 +107,7 @@
 enum irq_control_type {
 	APPLE_MBOX_IRQ_CTL_NONE = 0,
 	APPLE_MBOX_IRQ_CTL_ACK,
+	APPLE_MBOX_IRQ_CTL_MASK,
 };
 
 struct apple_mbox_hw {
@@ -267,7 +292,7 @@ int apple_mbox_start(struct apple_mbox *mbox)
 	 * the mailbox level so that both hardware revisions behave almost
 	 * the same.
 	 */
-	if (mbox->hw->irq_control_type == APPLE_MBOX_IRQ_CTL_ACK)
+	if (mbox->hw->irq_control_type)
 		writel_relaxed(mbox->hw->irq_bit_recv_not_empty |
 				       mbox->hw->irq_bit_send_empty,
 			       mbox->regs + mbox->hw->irq_enable);
@@ -424,6 +449,24 @@ static const struct apple_mbox_hw apple_mbox_t8015_hw = {
 	.irq_control_type = APPLE_MBOX_IRQ_CTL_NONE,
 };
 
+static const struct apple_mbox_hw apple_mbox_akf_hw = {
+	.control_full = APPLE_AKF_MBOX_CONTROL_FULL,
+	.control_empty = APPLE_AKF_MBOX_CONTROL_EMPTY,
+	.control_enable = APPLE_AKF_MBOX_CONTROL_ENABLE,
+
+	.is_96bit = false,
+	.a2i_control = APPLE_AKF_MBOX_A2I_CONTROL,
+	.a2i_send0 = APPLE_AKF_MBOX_A2I_SEND0,
+
+	.i2a_control = APPLE_AKF_MBOX_I2A_CONTROL,
+	.i2a_recv0 = APPLE_AKF_MBOX_I2A_RECV0,
+
+	.irq_control_type = APPLE_MBOX_IRQ_CTL_MASK,
+	.irq_enable = APPLE_AKF_MBOX_IRQ_ENABLE,
+	.irq_bit_recv_not_empty = APPLE_AKF_MBOX_IRQ_I2A_NOT_EMPTY,
+	.irq_bit_send_empty = APPLE_AKF_MBOX_IRQ_A2I_EMPTY,
+};
+
 static const struct apple_mbox_hw apple_mbox_asc_hw = {
 	.control_full = APPLE_ASC_MBOX_CONTROL_FULL,
 	.control_empty = APPLE_ASC_MBOX_CONTROL_EMPTY,
@@ -463,6 +506,7 @@ static const struct apple_mbox_hw apple_mbox_m3_hw = {
 static const struct of_device_id apple_mbox_of_match[] = {
 	{ .compatible = "apple,asc-mailbox-v4", .data = &apple_mbox_asc_hw },
 	{ .compatible = "apple,t8015-asc-mailbox", .data = &apple_mbox_t8015_hw },
+	{ .compatible = "apple,akf-mailbox-v1", .data = &apple_mbox_akf_hw },
 	{ .compatible = "apple,m3-mailbox-v2", .data = &apple_mbox_m3_hw },
 	{}
 };
