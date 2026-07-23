@@ -74,6 +74,9 @@ enum {
 #define APPLE_RTKIT_MIN_SUPPORTED_VERSION 10
 #define APPLE_RTKIT_MAX_SUPPORTED_VERSION 12
 
+#define APPLE_RTKIT_64BIT_MSG_EP	GENMASK_ULL(63, 56)
+#define APPLE_RTKIT_64BIT_MSG_MSG	GENMASK_ULL(55, 0)
+
 struct apple_rtkit_rx_work {
 	struct apple_rtkit *rtk;
 	u8 ep;
@@ -595,7 +598,16 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 {
 	struct apple_rtkit *rtk = cookie;
 	struct apple_rtkit_rx_work *work;
-	u8 ep = msg.msg1;
+	u64 rtk_msg;
+	u8 ep;
+
+	if (mbox->is_96bit) {
+		rtk_msg = msg.msg0;
+		ep = msg.msg1;
+	} else {
+		rtk_msg = FIELD_GET(APPLE_RTKIT_64BIT_MSG_MSG, msg.msg0);
+		ep = FIELD_GET(APPLE_RTKIT_64BIT_MSG_EP, msg.msg0);
+	};
 
 	/*
 	 * The message was read from a MMIO FIFO and we have to make
@@ -611,7 +623,7 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 
 	if (ep >= rtk->app_ep_start &&
 	    rtk->ops->recv_message_early &&
-	    rtk->ops->recv_message_early(rtk->cookie, ep, msg.msg0))
+	    rtk->ops->recv_message_early(rtk->cookie, ep, rtk_msg))
 		return;
 
 	work = kzalloc_obj(*work, GFP_ATOMIC);
@@ -620,7 +632,7 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 
 	work->rtk = rtk;
 	work->ep = ep;
-	work->msg = msg.msg0;
+	work->msg = rtk_msg;
 	INIT_WORK(&work->work, apple_rtkit_rx_work);
 	queue_work(rtk->wq, &work->work);
 }
@@ -628,10 +640,15 @@ static void apple_rtkit_rx(struct apple_mbox *mbox, struct apple_mbox_msg msg,
 int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
 			     struct completion *completion, bool atomic)
 {
-	struct apple_mbox_msg msg = {
-		.msg0 = message,
-		.msg1 = ep,
-	};
+	struct apple_mbox_msg msg;
+
+	if (rtk->mbox->is_96bit) {
+		msg.msg0 = message;
+		msg.msg1 = ep;
+	} else {
+		msg.msg0 = FIELD_PREP(APPLE_RTKIT_64BIT_MSG_EP, ep)
+			 | FIELD_PREP(APPLE_RTKIT_64BIT_MSG_MSG, message);
+	}
 
 	if (rtk->crashed) {
 		dev_warn(rtk->dev,
