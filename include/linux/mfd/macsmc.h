@@ -83,6 +83,7 @@ enum apple_smc_boot_stage {
 /**
  * struct apple_smc
  * @dev: Underlying device struct for the physical backend device
+ * @ep: SMC RTKit endpoint
  * @key_count: Number of available SMC keys
  * @first_key: First valid SMC key
  * @last_key: Last valid SMC key
@@ -104,6 +105,7 @@ enum apple_smc_boot_stage {
 struct apple_smc {
 	struct device *dev;
 
+	u8 ep;
 	u32 key_count;
 	smc_key first_key;
 	smc_key last_key;
