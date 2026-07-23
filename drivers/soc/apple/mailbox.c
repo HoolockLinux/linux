@@ -83,6 +83,7 @@
 struct apple_mbox_hw {
 	unsigned int control_full;
 	unsigned int control_empty;
+	unsigned int control_enable;
 
 	bool is_96bit;
 	unsigned int a2i_control;
@@ -394,6 +395,13 @@ static int apple_mbox_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, mbox);
+
+	if (mbox->hw->control_enable) {
+		writel(mbox->hw->control_enable, mbox->regs +
+		       mbox->hw->a2i_control);
+		writel(mbox->hw->control_enable, mbox->regs +
+		       mbox->hw->i2a_control);
+	}
 	return 0;
 }
 
