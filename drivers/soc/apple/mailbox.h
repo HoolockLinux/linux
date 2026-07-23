@@ -22,6 +22,7 @@ struct apple_mbox {
 	void __iomem *regs;
 	const struct apple_mbox_hw *hw;
 	bool active;
+	bool is_96bit;
 
 	int irq_recv_not_empty;
 	int irq_send_empty;

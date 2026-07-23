@@ -84,6 +84,7 @@ struct apple_mbox_hw {
 	unsigned int control_full;
 	unsigned int control_empty;
 
+	bool is_96bit;
 	unsigned int a2i_control;
 	unsigned int a2i_send0;
 	unsigned int a2i_send1;
@@ -154,8 +155,9 @@ int apple_mbox_send(struct apple_mbox *mbox, const struct apple_mbox_msg msg,
 	}
 
 	writeq_relaxed(msg.msg0, mbox->regs + mbox->hw->a2i_send0);
-	writeq_relaxed(FIELD_PREP(APPLE_MBOX_MSG1_MSG, msg.msg1),
-		       mbox->regs + mbox->hw->a2i_send1);
+	if (mbox->is_96bit)
+		writeq_relaxed(FIELD_PREP(APPLE_MBOX_MSG1_MSG, msg.msg1),
+			       mbox->regs + mbox->hw->a2i_send1);
 
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 
@@ -191,9 +193,10 @@ static int apple_mbox_poll_locked(struct apple_mbox *mbox)
 
 	while (!(mbox_ctrl & mbox->hw->control_empty)) {
 		msg.msg0 = readq_relaxed(mbox->regs + mbox->hw->i2a_recv0);
-		msg.msg1 = FIELD_GET(
-			APPLE_MBOX_MSG1_MSG,
-			readq_relaxed(mbox->regs + mbox->hw->i2a_recv1));
+		if (mbox->is_96bit)
+			msg.msg1 = FIELD_GET(APPLE_MBOX_MSG1_MSG,
+				   readq_relaxed(mbox->regs +
+						 mbox->hw->i2a_recv1));
 
 		mbox->rx(mbox, msg, mbox->cookie);
 		ret++;
@@ -347,6 +350,8 @@ static int apple_mbox_probe(struct platform_device *pdev)
 	if (!mbox->hw)
 		return -EINVAL;
 
+	mbox->is_96bit = mbox->hw->is_96bit;
+
 	mbox->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(mbox->regs))
 		return PTR_ERR(mbox->regs);
@@ -396,6 +401,7 @@ static const struct apple_mbox_hw apple_mbox_t8015_hw = {
 	.control_full = APPLE_ASC_MBOX_CONTROL_FULL,
 	.control_empty = APPLE_ASC_MBOX_CONTROL_EMPTY,
 
+	.is_96bit = true,
 	.a2i_control = APPLE_T8015_MBOX_A2I_CONTROL,
 	.a2i_send0 = APPLE_ASC_MBOX_A2I_SEND0,
 	.a2i_send1 = APPLE_ASC_MBOX_A2I_SEND1,
@@ -411,6 +417,7 @@ static const struct apple_mbox_hw apple_mbox_asc_hw = {
 	.control_full = APPLE_ASC_MBOX_CONTROL_FULL,
 	.control_empty = APPLE_ASC_MBOX_CONTROL_EMPTY,
 
+	.is_96bit = true,
 	.a2i_control = APPLE_ASC_MBOX_A2I_CONTROL,
 	.a2i_send0 = APPLE_ASC_MBOX_A2I_SEND0,
 	.a2i_send1 = APPLE_ASC_MBOX_A2I_SEND1,
@@ -426,6 +433,7 @@ static const struct apple_mbox_hw apple_mbox_m3_hw = {
 	.control_full = APPLE_M3_MBOX_CONTROL_FULL,
 	.control_empty = APPLE_M3_MBOX_CONTROL_EMPTY,
 
+	.is_96bit = true,
 	.a2i_control = APPLE_M3_MBOX_A2I_CONTROL,
 	.a2i_send0 = APPLE_M3_MBOX_A2I_SEND0,
 	.a2i_send1 = APPLE_M3_MBOX_A2I_SEND1,
