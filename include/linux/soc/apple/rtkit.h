@@ -39,6 +39,11 @@ struct apple_rtkit_shmem {
  *
  * @crashed:       Called when the co-processor has crashed. Runs in process
  *                 context.
+ * @epmap_done:    Called when epmap is completed. Useful if the IOP requires
+ *                 app endpoints to be started in order to reach power-on state.
+ *                 If it is specified, it is assumed that messages may be
+ *                 received on app endpoints during boot and shutdown. Runs in
+ *                 process context.
  * @recv_message:  Function called when a message from RTKit is received
  *                 on a non-system endpoint. Called from a worker thread.
  * @recv_message_early:
@@ -57,6 +62,7 @@ struct apple_rtkit_shmem {
  */
 struct apple_rtkit_ops {
 	void (*crashed)(void *cookie, const void *crashlog, size_t crashlog_size);
+	void (*epmap_done)(void* cookie);
 	void (*recv_message)(void *cookie, u8 endpoint, u64 message);
 	bool (*recv_message_early)(void *cookie, u8 endpoint, u64 message);
 	int (*shmem_setup)(void *cookie, struct apple_rtkit_shmem *bfr);

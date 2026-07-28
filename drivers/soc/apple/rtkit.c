@@ -225,6 +225,9 @@ static void apple_rtkit_management_rx_epmap(struct apple_rtkit *rtk, u64 msg)
 
 	rtk->boot_result = 0;
 	complete_all(&rtk->epmap_completion);
+
+	if (rtk->ops->epmap_done)
+		rtk->ops->epmap_done(rtk->cookie);
 }
 
 static void apple_rtkit_management_rx_iop_pwr_ack(struct apple_rtkit *rtk,
@@ -636,7 +639,8 @@ int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
 		return -EINVAL;
 	}
 
-	if (ep >= rtk->app_ep_start && !apple_rtkit_is_running(rtk)) {
+	if (ep >= rtk->app_ep_start && !rtk->ops->epmap_done &&
+	    !apple_rtkit_is_running(rtk)) {
 		dev_warn(rtk->dev,
 			 "RTKit: Endpoint 0x%02x is not running, cannot send message\n", ep);
 		return -EINVAL;
@@ -665,7 +669,7 @@ int apple_rtkit_start_ep(struct apple_rtkit *rtk, u8 endpoint)
 
 	if (!test_bit(endpoint, rtk->endpoints))
 		return -EINVAL;
-	if (endpoint >= rtk->app_ep_start &&
+	if (endpoint >= rtk->app_ep_start && !rtk->ops->epmap_done &&
 	    !apple_rtkit_is_running(rtk))
 		return -EINVAL;
 
