@@ -58,6 +58,17 @@ config ATARI_FLOPPY
 	tristate "Atari floppy support"
 	depends on ATARI
 
+config APPLE_ASP
+	tristate "Support for Apple ANS1 Storage Processor"
+	depends on APPLE_RTKIT && (ARCH_APPLE || COMPILE_TEST)
+	help
+	  The ASP controller is found on devices with Apple A7, A8, A8X
+	  SoCs. Say Y here to enable support for internal storage on
+	  Apple devices with these SoCs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called asp.
+
 config MAC_FLOPPY
 	tristate "Support for PowerMac floppy"
 	depends on PPC_PMAC && !PPC_PMAC64
