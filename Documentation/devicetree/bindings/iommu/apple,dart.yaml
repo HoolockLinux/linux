@@ -24,6 +24,7 @@ properties:
   compatible:
     oneOf:
       - enum:
+          - apple,s5l8960x-dart
           - apple,t8103-dart
           - apple,t8103-usb4-dart
           - apple,t8110-dart
@@ -31,6 +32,12 @@ properties:
       - items:
           - const: apple,t6020-dart
           - const: apple,t8110-dart
+      - items:
+          - enum:
+              - apple,t7000-dart
+              - apple,s8000-dart
+              - apple,t8010-dart
+          - const: apple,s5l8960x-dart
 
   reg:
     maxItems: 1
@@ -52,6 +59,13 @@ properties:
   power-domains:
     maxItems: 1
 
+  apple,dma-range:
+    $ref: /schemas/types.yaml#/definitions/uint64-array
+    description:
+      DMA aperture of the device. The first item is the starting address
+      and the second item is the size of the aperture.
+    maxItems: 2
+
 required:
   - compatible
   - reg
@@ -67,6 +81,7 @@ examples:
       reg = <0x82f80000 0x4000>;
       interrupts = <1 781 4>;
       #iommu-cells = <1>;
+      apple,dma-range = <0xf 0x00000000 0x0 0xfc000000>;
     };
 
     master1 {
