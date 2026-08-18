@@ -426,6 +426,34 @@
 			status = "disabled";
 		};
 
+		pmp: pmp@232300000 {
+			compatible = "apple,t8015-pmp-v1";
+			reg = <0x2 0x32300000 0x0 0x8000>,
+			      <0x2 0x32400000 0x0 0x10000>,
+			      <0x2 0x32500000 0x0 0x20000>;
+			reg-names = "akf", "control", "sram";
+			mboxes = <&pmp_mbox>;
+			mbox-names = "mbox";
+			power-domains = <&ps_pmp>, <&ps_pms_sram>;
+			power-domain-names = "pmp", "sram";
+			firmware-name = "apple/pmp-t8015.bin";
+		};
+
+		pmp_mbox: mbox@232308000 {
+			compatible = "apple,t8015-asc-mailbox";
+			reg = <0x2 0x32308000 0x0 0x4000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 229 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 230 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 231 IRQ_TYPE_LEVEL_HIGH>,
+				     <AIC_IRQ 232 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_pmp>;
+		};
+
+
 		pinctrl_ap: pinctrl@233100000 {
 			compatible = "apple,t8015-pinctrl", "apple,pinctrl";
 			reg = <0x2 0x33100000 0x0 0x1000>;
