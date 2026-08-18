@@ -179,4 +179,14 @@ int apple_rtkit_send_message(struct apple_rtkit *rtk, u8 ep, u64 message,
  */
 int apple_rtkit_poll(struct apple_rtkit *rtk);
 
+/*
+ * Convert an endpoint number relative to start of app endpoint to an absolute
+ * endpoint number.
+ *
+ * Returns the endpoint number on success, 0 on failure.
+ *
+ * @rtk:            RTKit reference
+ */
+u8 apple_rtkit_app_ep_to_ep(struct apple_rtkit *rtk, u8 app_ep);
+
 #endif /* _LINUX_APPLE_RTKIT_H_ */
