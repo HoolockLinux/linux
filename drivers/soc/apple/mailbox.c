@@ -80,6 +80,11 @@
 
 #define APPLE_MBOX_TX_TIMEOUT 500
 
+enum irq_control_type {
+	APPLE_MBOX_IRQ_CTL_NONE = 0,
+	APPLE_MBOX_IRQ_CTL_ACK,
+};
+
 struct apple_mbox_hw {
 	unsigned int control_full;
 	unsigned int control_empty;
@@ -94,7 +99,7 @@ struct apple_mbox_hw {
 	unsigned int i2a_recv0;
 	unsigned int i2a_recv1;
 
-	bool has_irq_controls;
+	enum irq_control_type irq_control_type;
 	unsigned int irq_enable;
 	unsigned int irq_ack;
 	unsigned int irq_bit_recv_not_empty;
@@ -135,10 +140,10 @@ int apple_mbox_send(struct apple_mbox *mbox, const struct apple_mbox_msg msg,
 		 * If the FIFO is already empty before the ack it will fire again
 		 * immediately after the ack.
 		 */
-		if (mbox->hw->has_irq_controls) {
+		if (mbox->hw->irq_control_type == APPLE_MBOX_IRQ_CTL_ACK)
 			writel_relaxed(mbox->hw->irq_bit_send_empty,
 				       mbox->regs + mbox->hw->irq_ack);
-		}
+
 		enable_irq(mbox->irq_send_empty);
 		reinit_completion(&mbox->tx_empty);
 		spin_unlock_irqrestore(&mbox->tx_lock, flags);
@@ -212,10 +217,9 @@ static int apple_mbox_poll_locked(struct apple_mbox *mbox)
 	 * those two the interrupt will just fire again immediately after the
 	 * ack since it's level triggered.
 	 */
-	if (mbox->hw->has_irq_controls) {
+	if (mbox->hw->irq_control_type == APPLE_MBOX_IRQ_CTL_ACK)
 		writel_relaxed(mbox->hw->irq_bit_recv_not_empty,
 			       mbox->regs + mbox->hw->irq_ack);
-	}
 
 	return ret;
 }
@@ -263,11 +267,10 @@ int apple_mbox_start(struct apple_mbox *mbox)
 	 * the mailbox level so that both hardware revisions behave almost
 	 * the same.
 	 */
-	if (mbox->hw->has_irq_controls) {
+	if (mbox->hw->irq_control_type == APPLE_MBOX_IRQ_CTL_ACK)
 		writel_relaxed(mbox->hw->irq_bit_recv_not_empty |
 				       mbox->hw->irq_bit_send_empty,
 			       mbox->regs + mbox->hw->irq_enable);
-	}
 
 	enable_irq(mbox->irq_recv_not_empty);
 	mbox->active = true;
@@ -418,7 +421,7 @@ static const struct apple_mbox_hw apple_mbox_t8015_hw = {
 	.i2a_recv0 = APPLE_ASC_MBOX_I2A_RECV0,
 	.i2a_recv1 = APPLE_ASC_MBOX_I2A_RECV1,
 
-	.has_irq_controls = false,
+	.irq_control_type = APPLE_MBOX_IRQ_CTL_NONE,
 };
 
 static const struct apple_mbox_hw apple_mbox_asc_hw = {
@@ -434,7 +437,7 @@ static const struct apple_mbox_hw apple_mbox_asc_hw = {
 	.i2a_recv0 = APPLE_ASC_MBOX_I2A_RECV0,
 	.i2a_recv1 = APPLE_ASC_MBOX_I2A_RECV1,
 
-	.has_irq_controls = false,
+	.irq_control_type = APPLE_MBOX_IRQ_CTL_NONE,
 };
 
 static const struct apple_mbox_hw apple_mbox_m3_hw = {
@@ -450,7 +453,7 @@ static const struct apple_mbox_hw apple_mbox_m3_hw = {
 	.i2a_recv0 = APPLE_M3_MBOX_I2A_RECV0,
 	.i2a_recv1 = APPLE_M3_MBOX_I2A_RECV1,
 
-	.has_irq_controls = true,
+	.irq_control_type = APPLE_MBOX_IRQ_CTL_ACK,
 	.irq_enable = APPLE_M3_MBOX_IRQ_ENABLE,
 	.irq_ack = APPLE_M3_MBOX_IRQ_ACK,
 	.irq_bit_recv_not_empty = APPLE_M3_MBOX_IRQ_I2A_NOT_EMPTY,
