@@ -35,9 +35,10 @@ properties:
           - const: apple,asc-mailbox-v4
 
       - description:
-          An older ASC mailbox interface found on T2 and A11 that is also
-          used for the NVMe coprocessor and the system management
-          controller.
+          The oldest ASC mailbox interface as well as a 96-bit variant
+          of the AKF mailbox with similar behaviours are found on T2 and
+          A11 and is used for the NVMe coprocessor and system management
+          coprocessor.
         items:
           - const: apple,t8015-asc-mailbox
 
