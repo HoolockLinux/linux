@@ -53,6 +53,16 @@ properties:
               - apple,t6000-m3-mailbox
           - const: apple,m3-mailbox-v2
 
+      - description:
+          AKF mailboxes with 64-bit messages are found on A7 - A10 SoCs
+          connecting to Cortex-A7 coprocessors such as the storage
+          controller and power management processor.
+        items:
+          - enum:
+              - apple,t7000-akf-mailbox-v1
+              - apple,s5l8960x-akf-mailbox-v1
+          - const: apple,akf-mailbox-v1
+
   reg:
     maxItems: 1
 
