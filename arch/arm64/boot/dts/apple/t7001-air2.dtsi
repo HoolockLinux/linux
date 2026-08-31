@@ -10,6 +10,11 @@
 / {
 	chassis-type = "tablet";
 
+	aliases {
+		/* Used by loader to fill in properties */
+		ans = &ans;
+	};
+
 	chosen {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -66,8 +71,18 @@
 		#size-cells = <2>;
 		ranges;
 
-		/* To be filled by loader */
+		ans_firmware: ans-firmware {
+			/* Filled in by bootloder */
+			reg = <0 0 0 0>;
+			no-map;
+		};
 	};
+};
+
+&ans {
+	memory-region = <&ans_firmware>;
+	memory-region-names = "firmware";
+	status = "okay";
 };
 
 &serial0 {

@@ -20,6 +20,7 @@
 	aliases {
 		ausbphy0 = &ausbphy0; /* Used by loader */
 		serial0 = &serial0;
+		asp = &ans;
 	};
 
 	clkref: clock-ref {
@@ -131,6 +132,29 @@
 			compatible = "apple,t7000-cluster-cpufreq", "apple,s5l8960x-cluster-cpufreq";
 			reg = <0x2 0x02220000 0 0x1000>;
 			#performance-domain-cells = <0>;
+		};
+
+		ans: block@208040000 {
+			compatible = "apple,t7001-ans", "apple,s5l8960x-ans";
+			reg = <0x2 0x08040000 0x0 0x1000>;
+			mboxes = <&ans_mbox>;
+			power-domains = <&ps_ans>;
+			resets = <&ps_ans>;
+			status = "disabled";
+		};
+
+		ans_mbox: mbox@208041000 {
+			compatible = "apple,t7000-akf-mailbox-v1", "apple,akf-mailbox-v1";
+			reg = <0x2 0x08041000 0x0 0x1000>;
+			interrupt-parent = <&aic>;
+			interrupts = <AIC_IRQ 36 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 37 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 38 IRQ_TYPE_LEVEL_HIGH>,
+				<AIC_IRQ 39 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "send-empty", "send-not-empty",
+				"recv-empty", "recv-not-empty";
+			#mbox-cells = <0>;
+			power-domains = <&ps_ans>;
 		};
 
 		serial0: serial@20a0c0000 {
