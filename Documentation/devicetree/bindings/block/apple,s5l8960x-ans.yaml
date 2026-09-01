@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/block/apple,s5l8960x-ans.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Apple ANS1 storage controller
+
+maintainers:
+  - Nick Chan <towinchenmi@gmail.com>
+
+properties:
+  compatible:
+    oneOf:
+      - const: apple,s5l8960x-ans
+      - items:
+          - enum:
+              - apple,t7000-ans
+              - apple,t7001-ans
+          - const: apple,s5l8960x-ans
+
+  reg:
+    maxItems: 1
+    description: AKF co-processor control registers
+
+  power-domains:
+    maxItems: 1
+    description: ANS1 CPU and mailbox power domain
+
+  mboxes:
+    maxItems: 1
+    description: Mailbox of the ANS1 co-processor
+
+  resets:
+    maxItems: 1
+
+  memory-region:
+    maxItems: 1
+    description: Region containing ANS1 firmware
+
+  memory-region-names:
+    const: firmware
+
+required:
+  - compatible
+  - reg
+  - power-domains
+  - mboxes
+  - resets
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/apple-aic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    block@8040000 {
+      compatible = "apple,t7000-ans", "apple,s5l8960x-ans";
+      reg = <0x8040000 0x40000>;
+      mboxes = <&ans_mbox>;
+      power-domains = <&ps_ans>;
+      resets = <&ps_ans>;
+    };
