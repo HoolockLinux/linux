@@ -12,6 +12,7 @@
 / {
 	aliases {
 		ausbphy0 = &ausbphy0; /* Used by loader */
+		asp = &ans;
 		serial0 = &serial0;
 	};
 
@@ -40,8 +41,19 @@
 		#size-cells = <2>;
 		ranges;
 
+		ans_firmware: ans-firmware {
+			/* Filled in by bootloder */
+			reg = <0 0 0 0>;
+			no-map;
+		};
 		/* To be filled by loader */
 	};
+};
+
+&ans {
+	memory-region = <&ans_firmware>;
+	memory-region-names = "firmware";
+	status = "okay";
 };
 
 &serial0 {
