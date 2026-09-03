@@ -70,6 +70,7 @@
 #define ASP_CMD_IDENTIFY	0x0
 #define ASP_CMD_READ_USERAREA	0x10
 #define ASP_CMD_WRITE_USERAREA	0x11
+#define ASP_CMD_FLUSH		0x13
 
 #define ASP_CMD_FORMAT_ALL	0x15
 #define ASP_CMD_FORMAT_USERAREA	0x16
@@ -465,6 +466,11 @@ static blk_status_t asp_setup_cmd(struct asp_queue *qd, struct request *req)
 			ret = asp_setup_rw(qd, req, req_op(req) == REQ_OP_WRITE);
 			break;
 
+		case REQ_OP_FLUSH:
+			iod->cmd.op = ASP_CMD_FLUSH;
+			ret = BLK_STS_OK;
+			break;
+
 		default:
 			ret = BLK_STS_NOTSUPP;
 			break;
@@ -826,6 +832,7 @@ static int apple_asp_start_disk(struct apple_asp *asp)
 		/* only constrianted by max_hw_sectors */
 		.max_segments = USHRT_MAX,
 		.max_segment_size = UINT_MAX,
+		.features = BLK_FEAT_WRITE_CACHE,
 	};
 
 	for (int i = ASP_QUEUE_TYPE_USERAREA; i < ASP_QUEUE_TYPE_COUNT; i++) {
