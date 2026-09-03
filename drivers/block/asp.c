@@ -1279,35 +1279,6 @@ static struct platform_driver apple_asp_driver = {
 	.shutdown = apple_asp_remove,
 };
 
-#if 0
-static int apple_asp_init(void)
-{
-	int ret;
-
-	pr_debug("Driver for Apple Annoying Non-stadnard Storage.");
-
-	ret = register_blkdev(0, DEVICE_NAME);
-	if (ret < 0) {
-		pr_err("%s: register_blkdev() failed: %d\n", __func__, ret);
-		return ret;
-	}
-
-	ret = platform_driver_register(&apple_asp_driver);
-	if (ret < 0)
-		unregister_blkdev(asp_major, DEVICE_NAME);
-
-	return ret;
-}
-
-static void __exit apple_asp_exit(void)
-{
-	unregister_blkdev(asp_major, DEVICE_NAME);
-}
-
-module_init(apple_asp_init);
-module_exit(apple_asp_exit);
-#endif
-
 module_platform_driver(apple_asp_driver);
 
 MODULE_LICENSE("Dual MIT/GPL");
