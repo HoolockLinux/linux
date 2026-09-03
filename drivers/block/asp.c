@@ -488,7 +488,7 @@ static blk_status_t apple_asp_submit_cmd(struct apple_asp *asp,
 
 	dma_wmb();
 	//dev_info(asp->dev, "tag: %d", cmd->tag);
-	//BUG_ON(cmd->tag >= 16);
+	BUG_ON(cmd->tag >= 16);
 
 	u64 rtk_msg = FIELD_PREP(ASP_MSG_TYPE, ASP_MSG_TYPE_SUBMIT)
 		      | FIELD_PREP(ASP_SUBMIT_TAG, cmd->tag)
@@ -737,7 +737,7 @@ static int apple_asp_start_disk(struct apple_asp *asp)
 
 	asp->tagset.ops = &apple_asp_queue_ops;
 	asp->tagset.nr_hw_queues = 1;
-	asp->tagset.queue_depth = ASP_NUM_TAGS - 1;
+	asp->tagset.queue_depth = ASP_NUM_TAGS;
 	asp->tagset.timeout = ASP_TIMEOUT_MS;
 	asp->tagset.numa_node = NUMA_NO_NODE;
 	asp->tagset.cmd_size = sizeof(struct asp_iod);
