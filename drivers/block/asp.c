@@ -266,6 +266,7 @@ static bool asp_is_write(struct asp_cmd_hdr *cmd)
 	switch (cmd->op) {
 		case ASP_CMD_IDENTIFY:
 		case ASP_CMD_READ_USERAREA:
+		case ASP_CMD_FLUSH:
 			return false;
 		case ASP_CMD_WRITE_USERAREA:
 		case ASP_CMD_FORMAT_ALL:
@@ -1253,6 +1254,7 @@ static void apple_asp_remove(struct platform_device *pdev)
 	if (apple_rtkit_is_running(asp->rtk))
 		 apple_rtkit_shutdown(asp->rtk);
 
+	mempool_destroy(asp->iod_mempool);
 	ida_free(&asp_instance_ida, asp->instance);
 
 	dma_free_coherent(asp->dev, ASP_QUEUE_SIZE, asp->q, asp->q_iova);
