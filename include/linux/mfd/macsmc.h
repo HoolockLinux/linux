@@ -93,6 +93,7 @@ enum apple_smc_boot_stage {
  * @sram: Pointer to SRAM resource
  * @sram_base: SRAM base address
  * @shmem: RTKit shared memory structure for SRAM
+ * @ep: SMC endpoint number
  * @msg_id: Current message id for commands, will be incremented for each command
  * @atomic_mode: Flag set when atomic mode is entered
  * @atomic_pending: Flag indicating pending atomic command
@@ -118,6 +119,7 @@ struct apple_smc {
 	struct resource *sram;
 	void __iomem *sram_base;
 	struct apple_rtkit_shmem shmem;
+	u8 ep;
 
 	unsigned int msg_id;
 
